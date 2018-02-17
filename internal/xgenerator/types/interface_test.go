@@ -1,7 +1,8 @@
-package types
+package types_test
 
 import (
-	"github.com/donutloop/xserver/generator/types"
+	"github.com/donutloop/xservice/internal/xgenerator/types"
+
 	"testing"
 )
 
