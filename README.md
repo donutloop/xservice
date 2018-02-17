@@ -30,3 +30,9 @@ Please read and follow our [Contributing](https://github.com/donutloop/xservice/
 ## Code of Conduct
 
 Please read and follow our [Code of Conduct](https://github.com/donutloop/xservice/blob/master/CODE_OF_CONDUCT.md).
+
+framework
+generate
+web-framework
+web-api
+api-server

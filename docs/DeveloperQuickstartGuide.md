@@ -1,4 +1,4 @@
-# Xserver Developer Quickstart Guide
+# xservice Developer Quickstart Guide
 
 ## Requirements
 
@@ -18,7 +18,7 @@ Make sure you have your $GOPATH, $PATH setup correctly
 
 ## Clone rmd code
 
-Clone or copy the code into $GOPATH/src/github.com/donutloop/xserver
+Clone or copy the code into $GOPATH/src/github.com/donutloop/xservice
 
 ## Build & install rmd
 
@@ -28,11 +28,11 @@ $ go get -u github.com/golang/dep/cmd/dep
 # Download deps 
 dep ensure 
 
-# install xserver into $GOPATH/bin
+# install xservice into $GOPATH/bin
 $ go build && mv ./generate $GOPATH/bin
 ```
 
-## Run xserver
+## Run xservice
 
 ```
 $ $GOPATH/bin/generate --help
@@ -52,5 +52,5 @@ to verify that our changes didn't introduce a couple of new bugs
 The following command builds a container and executes the test enviroment
 
 ```bash
-    docker build -t "xserver:dockerfile" -f ./Dockerfile.web .
+    docker build -t "xservice:dockerfile" -f ./Dockerfile.web .
 ```
