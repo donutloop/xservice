@@ -17,6 +17,20 @@ import (
 	"unicode/utf8"
 )
 
+// BaseName the last path element of a slash-delimited name, with the last
+// dotted suffix removed.
+func BaseName(name string) string {
+	// First, find the last element
+	if i := strings.LastIndex(name, "/"); i >= 0 {
+		name = name[i+1:]
+	}
+	// Now drop the suffix
+	if i := strings.LastIndex(name, "."); i >= 0 {
+		name = name[0:i]
+	}
+	return name
+}
+
 // SnakeCase converts a string from CamelCase to snake_case.
 func SnakeCase(s string) string {
 	var buf bytes.Buffer
@@ -153,8 +167,8 @@ func UnTitle(s string) string {
 	return fmt.Sprintf("%c", unicode.ToLower(r)) + s[width:]
 }
 
-func GoFileName(fileName string) (string, error) {
-	return fmt.Sprintf("%s.go", SnakeCase(fileName)), nil
+func GoFileName(fileName string) (string) {
+	return fmt.Sprintf("%s.go", SnakeCase(fileName))
 }
 
 var statusCode = map[int]string{

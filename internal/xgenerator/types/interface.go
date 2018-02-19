@@ -3,6 +3,8 @@ package types
 const interfaceNameTpl string = "interface"
 
 const interfaceTpl string = `
+{{ if .HeaderComment }} // .HeaderComment {{ .HeaderComment }}
+
 type {{ .Name }} interface {
 {{range $i, $Prototype := .Prototypes}}
 			{{if index $Prototype.Comment }}
@@ -16,6 +18,7 @@ type {{ .Name }} interface {
 
 type InterfaceMetadata struct {
 	Name       string
+	HeaderComment string
 	Prototypes []InterfacePrototypeMetadata
 }
 
