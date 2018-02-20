@@ -3,7 +3,7 @@ package types
 const interfaceNameTpl string = "interface"
 
 const interfaceTpl string = `
-{{ if .HeaderComment }} // .HeaderComment {{ .HeaderComment }}
+{{ if .HeaderComment }} // {{.HeaderComment }} {{end}}
 
 type {{ .Name }} interface {
 {{range $i, $Prototype := .Prototypes}}
@@ -17,9 +17,9 @@ type {{ .Name }} interface {
 }`
 
 type InterfaceMetadata struct {
-	Name       string
+	Name          string
 	HeaderComment string
-	Prototypes []InterfacePrototypeMetadata
+	Prototypes    []InterfacePrototypeMetadata
 }
 
 type InterfacePrototypeMetadata struct {

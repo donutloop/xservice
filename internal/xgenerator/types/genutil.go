@@ -107,7 +107,7 @@ func identifierList(names []string) string {
 	return text.String()
 }
 
-func UnsafeIdentifierList(names []string) string {
+func ValueList(names []string) string {
 	return strings.Join(names, ", ")
 }
 
@@ -167,7 +167,7 @@ func UnTitle(s string) string {
 	return fmt.Sprintf("%c", unicode.ToLower(r)) + s[width:]
 }
 
-func GoFileName(fileName string) (string) {
+func GoFileName(fileName string) string {
 	return fmt.Sprintf("%s.go", SnakeCase(fileName))
 }
 
@@ -342,3 +342,4 @@ type GeneratorError struct {
 func (e *GeneratorError) Error() string {
 	return fmt.Sprintf("%s: %s", reflect.TypeOf(e.generator).String(), e.err)
 }
+

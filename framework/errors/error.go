@@ -1,8 +1,11 @@
+// This file contains some code from  https://github.com/twitchtv/twirp/:
+// Copyright 2018 Twitch Interactive, Inc.  All Rights Reserved.  All rights reserved.
+// https://github.com/twitchtv/twirp/
+
 package errors
 
 import (
 	"fmt"
-	"tmp/twirp"
 )
 
 // Error represents an error in a service call.
@@ -309,13 +312,13 @@ type wrappedError struct {
 	cause error
 }
 
-func wrapErr(err error, msg string) error { return &wrappedError{msg: msg, cause: err} }
+func WrapErr(err error, msg string) error { return &wrappedError{msg: msg, cause: err} }
 func (e *wrappedError) Cause() error      { return e.cause }
 func (e *wrappedError) Error() string     { return e.msg + ": " + e.cause.Error() }
 
 // ClientError adds consistency to errors generated in the client
-func ClientError(desc string, err error)  Error {
-	return InternalErrorWith(wrapErr(err, desc))
+func ClientError(desc string, err error) Error {
+	return InternalErrorWith(WrapErr(err, desc))
 }
 
 // badRouteError is used when the twirp server cannot route a request

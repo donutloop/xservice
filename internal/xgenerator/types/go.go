@@ -13,15 +13,18 @@ import (
 
 const (
 	CallerTpl                 string = "%s(%s)\n"
-	DefCallTpl                string = "%s := %s(%s)\n"
+	DefAssginCallTpl          string = "%s := %s(%s)\n"
+	DefCallTpl                string = "%s = %s(%s)\n"
 	DefAppendTpl              string = "%s = append(%s)\n"
 	DefSCallTpl               string = "%s := %s(%s)"
 	DefVarShortTpl            string = "%s := %s\n"
+	DefVarLongTpl             string = "var %s %s\n"
 	DefNewTpl                 string = "%s := new(%s)\n"
 	DefOperationTpl           string = "%s := %s %s %s\n"
 	DefAssertTpl              string = "%s := %s.(%s)\n"
 	DefStructTpl              string = "%s := %s.%s\n"
-	DefReturn                 string = "return %s\n"
+	DefReturnTpl              string = "return \n"
+	DefReturnWithValuesTpl    string = "return %s\n"
 	CommandTpl                string = "%s %s\n"
 	StructAssignTpl           string = "%s.%s = %s\n"
 	IfStatmentTpl             string = "if %s %s %s {\n"
@@ -30,6 +33,7 @@ const (
 	IfEndTpl                  string = "}\n"
 	RangeTpl                  string = "for %s,%s := range %s {\n"
 	RangeEndTpl               string = "}\n"
+	DeferTpl                  string = "defer %s \n"
 )
 
 type GoGenerator struct {

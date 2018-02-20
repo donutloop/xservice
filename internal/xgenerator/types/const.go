@@ -1,13 +1,16 @@
 package types
 
 // Template of const
-const constTpl string = `const {{ .Name }} {{ .Typ }} = {{ .Value }}`
+const constTpl string = `
+{{ if .Comment }} // {{ .Comment }} {{ end }}
+const {{ .Name }} {{ .Typ }} = {{ .Value }}`
 const constTplName string = "const"
 
 type ConstMetadata struct {
 	Name  string
 	Value string
 	Typ   string
+	Comment string
 }
 
 type ConstGenerator struct {
@@ -15,7 +18,7 @@ type ConstGenerator struct {
 	ConstMetaData ConstMetadata
 }
 
-func NewGoConst(name string, typeReference TypeReference, value string) (*ConstGenerator, error) {
+func NewGoConst(name string, typeReference TypeReference, value string, commentGenerator *CommentGenerator) (*ConstGenerator, error) {
 
 	constGen := ConstGenerator{}
 
@@ -45,6 +48,18 @@ func NewGoConst(name string, typeReference TypeReference, value string) (*ConstG
 		Value: value,
 		Typ:   typeReference.GetName(),
 	}
+
+	if commentGenerator != nil {
+		comment, err := commentGenerator.Render()
+		if err != nil {
+			return nil, err
+		}
+
+		if comment != "" {
+			constGen.ConstMetaData.Comment = comment
+		}
+	}
+
 	constGen.TplName = constTplName
 	constGen.InitTemplate(constTpl)
 

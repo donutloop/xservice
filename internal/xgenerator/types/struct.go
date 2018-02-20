@@ -74,6 +74,26 @@ func NewGoStruct(name string, withoutGroup bool) (*StructGenerator, error) {
 	return &structGenerator, nil
 }
 
+func (gen *StructGenerator) Type(typ TypeReference, comment string) error {
+
+	if typ == nil {
+		return NewGeneratorErrorString(gen, "TypeReference is missing")
+	}
+
+	if typ.GetName() == "" {
+		return NewGeneratorErrorString(gen, "typ of exported field is missing")
+	}
+
+
+	field := &StructFieldTmplValues{
+		Type:              typ.GetName(),
+		CommentOfProperty: comment,
+	}
+
+	gen.StructMetaData.Fields = append(gen.StructMetaData.Fields, field)
+	return nil
+}
+
 func (gen *StructGenerator) AddExportedField(name string, typ TypeReference, comment string) error {
 
 	if name == "" {

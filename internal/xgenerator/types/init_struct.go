@@ -31,7 +31,15 @@ func NewInitGoStruct(typ string) (*InitStructGenerator, error) {
 	return &initStructGenerator, nil
 }
 
-func (gen *InitStructGenerator) AddValueToField(name, value string) error {
+func (gen *InitStructGenerator) AddUnexportedValueToField(name, value string ) error {
+	return gen.addValueToField(UnexportedIdentifier(name), value)
+}
+
+func (gen *InitStructGenerator) AddExportedValueToField(name, value string ) error {
+	return gen.addValueToField(ExportedIdentifier(name), value)
+}
+
+func (gen *InitStructGenerator) addValueToField(name, value string) error {
 
 	if name == "" {
 		return NewGeneratorErrorString(gen, "unexported field name is missing")
@@ -46,7 +54,7 @@ func (gen *InitStructGenerator) AddValueToField(name, value string) error {
 	}
 
 	field := &InitStructField{
-		Name:  ExportedIdentifier(name),
+		Name:  name,
 		Value: value,
 	}
 

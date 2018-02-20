@@ -27,7 +27,7 @@ func (gen *GoBlockGenerator) caller(fnc TypeReference, parameters []string) (str
 		return "", NewGeneratorError(gen, err)
 	}
 
-	return fmt.Sprintf(CallerTpl, fnc.GetName(), identifierList(parameters)), nil
+	return fmt.Sprintf(CallerTpl, fnc.GetName(), ValueList(parameters)), nil
 }
 
 func (gen *GoBlockGenerator) Caller(fnc TypeReference, parameters []string) error {
@@ -61,7 +61,33 @@ func (gen *GoBlockGenerator) DefCall(vars []string, fnc TypeReference, params []
 		return NewGeneratorError(gen, err)
 	}
 
-	gen.MetaData.Lines = append(gen.MetaData.Lines, fmt.Sprintf(DefCallTpl, identifierList(vars), fnc.GetName(), identifierList(params)))
+	gen.MetaData.Lines = append(gen.MetaData.Lines, fmt.Sprintf(DefCallTpl, identifierList(vars), fnc.GetName(), ValueList(params)))
+	return nil
+}
+
+func (gen *GoBlockGenerator) DefAssginCall(vars []string, fnc TypeReference, params []string) error {
+
+	if fnc == nil {
+		return NewGeneratorErrorString(gen, "TypeReference is missing")
+	}
+
+	if fnc.GetName() == "" {
+		return NewGeneratorErrorString(gen, "function is missing")
+	}
+
+	if len(vars) == 0 {
+		return NewGeneratorErrorString(gen, "return values are missing")
+	}
+
+	if err := ValidateIdents(vars); err != nil {
+		return NewGeneratorError(gen, err)
+	}
+
+	if err := ValidateIdent(fnc.GetName()); err != nil {
+		return NewGeneratorError(gen, err)
+	}
+
+	gen.MetaData.Lines = append(gen.MetaData.Lines, fmt.Sprintf(DefAssginCallTpl, identifierList(vars), fnc.GetName(), ValueList(params)))
 	return nil
 }
 
@@ -75,7 +101,7 @@ func (gen *GoBlockGenerator) DefAppend(vars string, params []string) error {
 		return NewGeneratorError(gen, err)
 	}
 
-	gen.MetaData.Lines = append(gen.MetaData.Lines, fmt.Sprintf(DefAppendTpl, Identifier(vars), UnsafeIdentifierList(params)))
+	gen.MetaData.Lines = append(gen.MetaData.Lines, fmt.Sprintf(DefAppendTpl, Identifier(vars), ValueList(params)))
 	return nil
 }
 
@@ -89,7 +115,7 @@ func (gen *GoBlockGenerator) DefMake(vars string, params []string) error {
 		return NewGeneratorError(gen, err)
 	}
 
-	gen.MetaData.Lines = append(gen.MetaData.Lines, fmt.Sprintf(DefCallTpl, Identifier(vars), "make", UnsafeIdentifierList(params)))
+	gen.MetaData.Lines = append(gen.MetaData.Lines, fmt.Sprintf(DefCallTpl, Identifier(vars), "make", ValueList(params)))
 	return nil
 }
 
@@ -111,7 +137,7 @@ func (gen *GoBlockGenerator) SCallWithDefVar(vars []string, fnc string, params [
 		return "", NewGeneratorError(gen, err)
 	}
 
-	return fmt.Sprintf(DefSCallTpl, identifierList(vars), fnc, identifierList(params)), nil
+	return fmt.Sprintf(DefSCallTpl, identifierList(vars), fnc, ValueList(params)), nil
 }
 
 func (gen *GoBlockGenerator) SCall(fnc TypeReference, params []string) (string, error) {
@@ -128,7 +154,7 @@ func (gen *GoBlockGenerator) SCall(fnc TypeReference, params []string) (string, 
 		return "", NewGeneratorError(gen, err)
 	}
 
-	return fmt.Sprintf(CallerTpl, fnc.GetName(), identifierList(params)), nil
+	return fmt.Sprintf(CallerTpl, fnc.GetName(), ValueList(params)), nil
 }
 
 func (gen *GoBlockGenerator) DefNew(varName string, typ TypeReference) error {
@@ -153,7 +179,22 @@ func (gen *GoBlockGenerator) DefNew(varName string, typ TypeReference) error {
 	return nil
 }
 
-func (gen *GoBlockGenerator) DefVar(varName, varValue string) error {
+func (gen *GoBlockGenerator) DefLongVar(varName, varType string) error {
+	return gen.defVar(varName, varType, true)
+}
+
+func (gen *GoBlockGenerator) DefShortVar(varName, varType string) error {
+	return gen.defVar(varName, varType, false)
+}
+
+func (gen *GoBlockGenerator) defVar(varName, varType string, long bool) error {
+
+	var format string
+	if long {
+		format = DefVarLongTpl
+	} else {
+		format = DefVarShortTpl
+	}
 
 	if varName == "" {
 		return NewGeneratorErrorString(gen, "var is missing")
@@ -163,11 +204,11 @@ func (gen *GoBlockGenerator) DefVar(varName, varValue string) error {
 		return NewGeneratorError(gen, err)
 	}
 
-	if varValue == "" {
-		return NewGeneratorErrorString(gen, "value of var is missing")
+	if varType == "" {
+		return NewGeneratorErrorString(gen, "type of var is missing")
 	}
 
-	gen.MetaData.Lines = append(gen.MetaData.Lines, fmt.Sprintf(DefVarShortTpl, Identifier(varName), varValue))
+	gen.MetaData.Lines = append(gen.MetaData.Lines, fmt.Sprintf(format, Identifier(varName), varType))
 	return nil
 }
 
@@ -245,8 +286,16 @@ func (gen *GoBlockGenerator) Command(cmd string, params []string) {
 	gen.MetaData.Lines = append(gen.MetaData.Lines, fmt.Sprintf(CommandTpl, cmd, identifierList(params)))
 }
 
-func (gen *GoBlockGenerator) Return(params []string) {
-	gen.MetaData.Lines = append(gen.MetaData.Lines, fmt.Sprintf(DefReturn, identifierList(params)))
+func (gen *GoBlockGenerator) Return(params ...[]string) {
+
+	var s string
+	if params != nil && len(params) == 1 {
+		s = fmt.Sprintf(DefReturnWithValuesTpl, identifierList(params[0]))
+	} else {
+		s = DefReturnTpl
+	}
+
+	gen.MetaData.Lines = append(gen.MetaData.Lines, s)
 }
 
 func (gen *GoBlockGenerator) StructAssignment(typ, propertyOfTyp string, valueToAssign string) error {
@@ -263,7 +312,7 @@ func (gen *GoBlockGenerator) StructAssignment(typ, propertyOfTyp string, valueTo
 		return NewGeneratorErrorString(gen, "value is missing")
 	}
 
-	gen.MetaData.Lines = append(gen.MetaData.Lines, fmt.Sprintf(StructAssignTpl, Identifier(typ), Identifier(propertyOfTyp), Identifier(valueToAssign)))
+	gen.MetaData.Lines = append(gen.MetaData.Lines, fmt.Sprintf(StructAssignTpl, Identifier(typ), Identifier(propertyOfTyp), valueToAssign))
 	return nil
 }
 
@@ -272,7 +321,7 @@ func (gen *GoBlockGenerator) DefIfWithOwnScopeBegin(caller string, rightSide str
 		return err
 	}
 
-	gen.MetaData.Lines = append(gen.MetaData.Lines, fmt.Sprintf(IfStatmentWithOwnScopeTpl, caller, Identifier(rightSide), operation.String(), Identifier(leftSide)))
+	gen.MetaData.Lines = append(gen.MetaData.Lines, fmt.Sprintf(IfStatmentWithOwnScopeTpl, caller, rightSide, operation.String(), leftSide))
 	return nil
 }
 
@@ -281,7 +330,7 @@ func (gen *GoBlockGenerator) DefIfBegin(rightSide string, operation token.Token,
 		return err
 	}
 
-	gen.MetaData.Lines = append(gen.MetaData.Lines, fmt.Sprintf(IfStatmentTpl, Identifier(rightSide), operation.String(), Identifier(leftSide)))
+	gen.MetaData.Lines = append(gen.MetaData.Lines, fmt.Sprintf(IfStatmentTpl, rightSide, operation.String(), leftSide))
 	return nil
 }
 
@@ -338,7 +387,17 @@ func (gen *GoBlockGenerator) ReturnCaller(fnc TypeReference, parameters []string
 	if err != nil {
 		return err
 	}
-	gen.MetaData.Lines = append(gen.MetaData.Lines, fmt.Sprintf(DefReturn, line))
+	gen.MetaData.Lines = append(gen.MetaData.Lines, fmt.Sprintf(DefReturnWithValuesTpl, line))
+	return nil
+}
+
+func (gen *GoBlockGenerator) Defer(fnc TypeReference, parameters []string) error {
+
+	line, err := gen.caller(fnc, parameters)
+	if err != nil {
+		return err
+	}
+	gen.MetaData.Lines = append(gen.MetaData.Lines, fmt.Sprintf(DeferTpl, line))
 	return nil
 }
 
@@ -369,5 +428,22 @@ func (gen *GoBlockGenerator) TypeSwitch(switchGenerator SwitchGenerator) error {
 		return err
 	}
 	gen.MetaData.Lines = append(gen.MetaData.Lines, code)
+	return nil
+}
+
+func (gen *GoBlockGenerator) InitStruct(statement string, initStructGenerator *InitStructGenerator, pointerReference bool) error {
+	s, err := initStructGenerator.Render()
+	if err != nil  {
+		return err
+	}
+
+	var format string
+	if pointerReference {
+		format = fmt.Sprintf("%s &%s", statement, s)
+	} else {
+		format = fmt.Sprintf("%s %s", statement, s)
+	}
+
+	gen.MetaData.Lines = append(gen.MetaData.Lines, format)
 	return nil
 }

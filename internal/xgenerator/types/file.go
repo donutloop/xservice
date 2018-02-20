@@ -3,7 +3,6 @@ package types
 import (
 	"fmt"
 	"golang.org/x/tools/imports"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,13 +18,17 @@ const packageTpl string = `
 package {{ .Pkg }}
 
 import (
-{{range $i, $import := .Imports}}
-             "{{- $import}}"
+{{range $i, $ip := .Imports}}
+         {{if $ip.Alias }} {{$ip.Alias}} {{end}} "{{- $ip.ImportPath}}"
 {{end}}
 )
 
 {{range $i, $const := .Consts}}
              {{- $const}}
+{{end}}
+
+{{range $i, $var := .Vars}}
+            {{- $var}}
 {{end}}
 
 {{range $i, $Interface := .Interfaces}}
@@ -66,8 +69,13 @@ type Generator interface {
 	Render() (string, error)
 }
 
+type ImportDecl struct {
+	Alias      string
+	ImportPath string
+}
+
 type fileMetadata struct {
-	Imports           []string
+	Imports           []ImportDecl
 	FileName          string
 	DirToScan         string
 	SourceFile        string
@@ -75,6 +83,7 @@ type fileMetadata struct {
 	Types             []string
 	Funcs             []string
 	Consts            []string
+	Vars              []string
 	Prototypes        []string
 	Interfaces        []string
 	TypesWithMethods  []string
@@ -87,7 +96,7 @@ type FileGenerator struct {
 	FileMetaData fileMetadata
 }
 
-func NewGoFile(pkg string, fileName string, dirToScan string) (*FileGenerator, error) {
+func NewGoFile(pkg string, fileName string) (*FileGenerator, error) {
 
 	gen := FileGenerator{}
 	if pkg == "" {
@@ -101,13 +110,9 @@ func NewGoFile(pkg string, fileName string, dirToScan string) (*FileGenerator, e
 	if fileName == "" {
 		return nil, NewGeneratorErrorString(gen, "filename of go file is missing")
 	}
-	if dirToScan == "" {
-		return nil, NewGeneratorErrorString(gen, "dir to scan of go file is missing")
-	}
 
 	gen.FileMetaData = fileMetadata{
-		Pkg:       pkg,
-		DirToScan: dirToScan,
+		Pkg: pkg,
 	}
 
 	gen.FileMetaData.FileName = gen.prepareFileName(fileName)
@@ -128,7 +133,7 @@ func (gen *FileGenerator) Type(typs ...*StructGenerator) error {
 	return nil
 }
 
-func (gen *FileGenerator) HeaderComment(generator *CommentGenerator) (error) {
+func (gen *FileGenerator) HeaderComment(generator *CommentGenerator) error {
 
 	comment, err := generator.Render()
 	if err != nil {
@@ -139,12 +144,17 @@ func (gen *FileGenerator) HeaderComment(generator *CommentGenerator) (error) {
 	return nil
 }
 
-func (gen *FileGenerator) Import(Import string) error {
+func (gen *FileGenerator) Import(alias string, Import string) error {
 	if Import == "" {
 		return NewGeneratorErrorString(gen, "import is a empty string")
 	}
 
-	gen.FileMetaData.Imports = append(gen.FileMetaData.Imports, Import)
+	i := ImportDecl{
+		ImportPath: Import,
+		Alias:      alias,
+	}
+
+	gen.FileMetaData.Imports = append(gen.FileMetaData.Imports, i)
 	return nil
 }
 
@@ -196,6 +206,13 @@ func (gen *FileGenerator) Const(g *ConstGenerator) error {
 	gen.FileMetaData.Consts = append(gen.FileMetaData.Consts, cnst)
 	return nil
 }
+
+
+func (gen *FileGenerator) Var(varObject string) error {
+	gen.FileMetaData.Consts = append(gen.FileMetaData.Vars, varObject)
+	return nil
+}
+
 
 func (gen *FileGenerator) Prototype(g *PrototypeGenerator) error {
 
@@ -249,7 +266,7 @@ func (gen *FileGenerator) TypesWithMethods(tg Type) error {
 }
 
 func (gen *FileGenerator) Render() (string, error) {
-	s, err := gen.Render()
+	s, err := gen.render(gen.FileMetaData)
 	if err != nil {
 		return s, NewGeneratorError(gen, err)
 	}
@@ -264,7 +281,7 @@ func (gen *FileGenerator) RenderBytes() ([]byte, error) {
 	return b, err
 }
 
-func (gen *FileGenerator) prepareFileName(fileName string) (string) {
+func (gen *FileGenerator) prepareFileName(fileName string) string {
 	filePathParts := strings.Split(fileName, string(os.PathSeparator))
 	if len(filePathParts) > 1 {
 		fileName = GoFileName(filePathParts[len(filePathParts)-1])
@@ -275,16 +292,16 @@ func (gen *FileGenerator) prepareFileName(fileName string) (string) {
 	return fileName
 }
 
-func (gen *FileGenerator) CreatePopulatedFile() error {
+func (gen *FileGenerator) RenderAndFormatCode() ([]byte, error) {
 
 	pkgContent, err := gen.RenderBytes()
 	if err != nil {
-		return NewGeneratorError(gen, err)
+		return nil, NewGeneratorError(gen, err)
 	}
 
 	formatedContent, err := imports.Process(gen.GetFileName(), pkgContent, nil)
 	if err != nil {
-		return NewGeneratorErrorString(gen, fmt.Sprintf(
+		return nil, NewGeneratorErrorString(gen, fmt.Sprintf(
 			`While the formting the source code is a error occurd (%v)
 		||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 		|||||||||||||||||||||||||||||||||||||||Source code||||||||||||||||||||||||||||||||||||||||||||
@@ -298,12 +315,7 @@ func (gen *FileGenerator) CreatePopulatedFile() error {
 		))
 	}
 
-	err = ioutil.WriteFile(gen.GetFileName(), formatedContent, os.ModePerm)
-	if err != nil {
-		return NewGeneratorErrorString(gen, fmt.Sprintf("error writing go file (%s)", err))
-	}
-
-	return nil
+	return formatedContent, err
 }
 
 func (gen *FileGenerator) GetFileName() string {

@@ -1,10 +1,14 @@
+// This file contains some code from  https://github.com/twitchtv/twirp/:
+// Copyright 2018 Twitch Interactive, Inc.  All Rights Reserved.  All rights reserved.
+// https://github.com/twitchtv/twirp/
+
 package ctxsetters
 
 import (
-"context"
-"net/http"
-"strconv"
+	"context"
 	"github.com/pkg/errors"
+	"net/http"
+	"strconv"
 )
 
 type contextKey int

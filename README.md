@@ -2,18 +2,85 @@
 
 ## Introduction
 
-xservice is a simple generator library used for generating services quickly and easily for an specification. 
+xservice is a simple generator library used for generating services quickly and easily for an proto buffer. 
 The purpose of this project is to generate of a lot of the basic boilerplate associated with writing API services so that you can focus on writing business logic.
 
-## Installation
+## Making a golang xservice
 
-```sh
-go get github.com/donutloop/xservie
+To make a golang service:
+
+  1. Define your service in a **Proto** file.
+  2. Use the `protoc` command to generate go code from the **Proto** file, it
+     will generate an **interface**, a **server** and some **server utils** (to
+     easily start an http listener).
+  3. Implement the generated **interface** to implement the service.
+
+For example, a HelloWorld **Proto** file:
+
+```protobuf
+syntax = "proto3";
+package donutloop.xservice.example.helloworld;
+option go_package = "helloworld";
+
+service HelloWorld {
+  rpc Hello(HelloReq) returns (HelloResp);
+}
+
+message HelloReq {
+  string subject = 1;
+}
+
+message HelloResp {
+  string text = 1;
+}
+```
+
+From which xservice can auto-generate this **interface** (running the `protoc` command):
+
+```go
+type HelloWorld interface {
+	Hello(context.Context, *HelloReq) (*HelloResp, error)
+}
+```
+
+You provide the **implementation**:
+
+```go
+package main
+
+import (
+	"context"
+	"net/http"
+
+	pb "github.com/donutloop/xservice-example/helloworld"
+)
+
+type HelloWorldServer struct{}
+
+func (s *HelloWorldServer) Hello(ctx context.Context, req *pb.HelloReq) (*pb.HelloResp, error) {
+	return &pb.HelloResp{Text: "Hello " + req.Subject}, nil
+}
+
+// Run the implementation in a local server
+func main() {
+	handler := pb.NewHelloWorldServer(&HelloWorldServer{}, nil)
+	// You can use any mux you like - NewHelloWorldServer gives you an http.Handler.
+	mux := http.NewServeMux()
+	// The generated code includes a const, <ServiceName>PathPrefix, which
+	// can be used to mount your service on a mux.
+	mux.Handle(pb.HelloWorldPathPrefix, handler)
+	http.ListenAndServe(":8080", mux)
+}
 ```
 
 ## QuickStart for developers
 
 Please refer [**docs/DeveloperQuickStart.md**](https://github.com/donutloop/xservice/blob/master/docs/DeveloperQuickstartGuide.md)
+
+## Roadmap
+
+* Golang client & server: support for protobuffer content type 
+* Multi language support
 
 ## Contribution
 
@@ -31,8 +98,6 @@ Please read and follow our [Contributing](https://github.com/donutloop/xservice/
 
 Please read and follow our [Code of Conduct](https://github.com/donutloop/xservice/blob/master/CODE_OF_CONDUCT.md).
 
-framework
-generate
-web-framework
-web-api
-api-server
+## Credits
+
+* Parts of xservice thinking comes from twrip (https://github.com/twitchtv/twirp)

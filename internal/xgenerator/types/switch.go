@@ -1,18 +1,25 @@
 package types
 
 const typeSwitchTpl string = `
-switch {{if .Typed }}{{.Typed }}:={{end}} {{.Var}}.(type) {
+switch {{if .Typed }}{{.Typed }}:={{end}} {{.Var}}{{if .Typed }}.(type){{end}} {
 	{{range $i, $CaseData := .Cases -}}
 		case {{ $CaseData.Type }}:
 			{{range $i, $line := $CaseData.Code -}}
 				{{ $line }}
 			{{- end}}
 	{{- end -}}
+	{{ if .DefaultCase }}
+		default:
+		{{range $i, $line := .DefaultCase.Code -}}
+				{{ $line }}
+		{{- end -}}
+	{{- end -}}
 }
 `
 
 type SwitchGeneratorMetaData struct {
 	Cases []Case
+	DefaultCase DefaultCase
 	Var   string
 	Typed string
 }
@@ -24,6 +31,10 @@ type SwitchGenerator struct {
 
 type Case struct {
 	Type string
+	Code []string
+}
+
+type DefaultCase struct {
 	Code []string
 }
 
@@ -52,6 +63,10 @@ func (gen *SwitchGenerator) Case(caseGenerator CaseGenerator) {
 	gen.SwitchMetaData.Cases = append(gen.SwitchMetaData.Cases, Case{Type: caseGenerator.CaseMetaData.Typ, Code: caseGenerator.GoBlockGenerator.MetaData.Lines})
 }
 
+func (gen *SwitchGenerator) Default(caseDefaultGenerator DefaultCaseGenerator) {
+	gen.SwitchMetaData.DefaultCase = DefaultCase{Code: caseDefaultGenerator.GoBlockGenerator.MetaData.Lines}
+}
+
 func (gen *SwitchGenerator) Render() (string, error) {
 	s, err := gen.render(gen.SwitchMetaData)
 	if err != nil {
@@ -78,21 +93,54 @@ case {{ .Typ }}:
 {{- end}}
 `
 
-func NewCaseGenerator(typ string) (*CaseGenerator, error) {
+func NewCaseGenerator(value string) (*CaseGenerator, error) {
 	gen := &CaseGenerator{}
-	if typ == "" {
-		return nil, NewGeneratorErrorString(gen, "typ is missing")
+	if value == "" {
+		return nil, NewGeneratorErrorString(gen, "value is missing")
 	}
-	if err := ValidateIdent(typ); err != nil {
+	if err := ValidateIdent(value); err != nil {
 		return nil, NewGeneratorError(gen, err)
 	}
-	gen.CaseMetaData.Typ = typ
+	gen.CaseMetaData.Typ = value
 	gen.TplName = "case"
 	gen.InitTemplate(CaseTpl)
 	return gen, nil
 }
 
 func (gen *CaseGenerator) Render() (string, error) {
+	gen.CaseMetaData.Lines = gen.GoBlockGenerator.MetaData.Lines
+	s, err := gen.render(gen.CaseMetaData)
+	if err != nil {
+		return s, NewGeneratorError(gen, err)
+	}
+	return s, err
+}
+
+const DefaultCaseTpl string = `
+default:
+{{range $i, $line := .Lines -}}
+	{{ $line }}
+{{- end}}
+`
+
+type DefaultCaseGeneratorMetaData struct {
+	Lines []string
+}
+
+type DefaultCaseGenerator struct {
+	GoGenerator
+	GoBlockGenerator
+	CaseMetaData DefaultCaseGeneratorMetaData
+}
+
+func NewDefaultCaseGenerator() (*DefaultCaseGenerator, error) {
+	gen := &DefaultCaseGenerator{}
+	gen.TplName = "defaultCase"
+	gen.InitTemplate(DefaultCaseTpl)
+	return gen, nil
+}
+
+func (gen *DefaultCaseGenerator) Render() (string, error) {
 	gen.CaseMetaData.Lines = gen.GoBlockGenerator.MetaData.Lines
 	s, err := gen.render(gen.CaseMetaData)
 	if err != nil {

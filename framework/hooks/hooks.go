@@ -1,8 +1,12 @@
+// This file contains some code from  https://github.com/twitchtv/twirp/:
+// Copyright 2018 Twitch Interactive, Inc.  All Rights Reserved.  All rights reserved.
+// https://github.com/twitchtv/twirp/
+
 package hooks
 
 import (
 	"context"
-	"github.com/donutloop/xservice/framework/error"
+	"github.com/donutloop/xservice/framework/errors"
 )
 
 // ServerHooks is a container for callbacks that can instrument a
@@ -59,7 +63,6 @@ func ChainHooks(hooks ...*ServerHooks) *ServerHooks {
 	if len(hooks) == 1 {
 		return hooks[0]
 	}
-
 
 	return &ServerHooks{
 		RequestReceived: func(ctx context.Context) (context.Context, error) {

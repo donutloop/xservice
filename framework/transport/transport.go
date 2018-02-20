@@ -1,21 +1,25 @@
+// This file contains some code from  https://github.com/twitchtv/twirp/:
+// Copyright 2018 Twitch Interactive, Inc.  All Rights Reserved.  All rights reserved.
+// https://github.com/twitchtv/twirp/
+
 package transport
 
 import (
-	"context"
 	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"github.com/donutloop/xservice/framework/ctxsetters"
+	"github.com/donutloop/xservice/framework/errors"
+	"github.com/donutloop/xservice/framework/hooks"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
-	"net/http"
-	"github.com/donutloop/xservice/framework/error"
 	"io"
-	"fmt"
 	"io/ioutil"
-	"encoding/json"
-	"strconv"
 	"log"
+	"net/http"
 	"net/url"
-	"github.com/donutloop/xservice/framework/hooks"
-	"github.com/donutloop/xservice/framework/ctx"
+	"strconv"
 )
 
 // HTTPClient is the interface used by generated clients to send HTTP requests.
@@ -29,7 +33,6 @@ import (
 type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
-
 
 // getCustomHTTPReqHeaders retrieves a copy of any headers that are set in
 // a context through the .WithHTTPRequestHeaders function.
@@ -54,11 +57,11 @@ func getCustomHTTPReqHeaders(ctx context.Context) http.Header {
 // WriteError writes an HTTP response with a valid  error format.
 // If err is not a .Error, it will get wrapped with .InternalErrorWith(err)
 func WriteError(resp http.ResponseWriter, err error) {
-	writeError(context.Background(), resp, err, nil)
+	WriteErrorAndTriggerHooks(context.Background(), resp, err, nil)
 }
 
 // writeError writes  errors in the response and triggers hooks.
-func writeError(ctx context.Context, resp http.ResponseWriter, err error, hooks *hooks.ServerHooks) {
+func WriteErrorAndTriggerHooks(ctx context.Context, resp http.ResponseWriter, err error, hooks *hooks.ServerHooks) {
 	// Non- errors are wrapped as Internal (default)
 	terr, ok := err.(errors.Error)
 	if !ok {
@@ -67,7 +70,7 @@ func writeError(ctx context.Context, resp http.ResponseWriter, err error, hooks 
 
 	statusCode := errors.ServerHTTPStatusFromErrorCode(terr.Code())
 	ctx = ctxsetters.WithStatusCode(ctx, statusCode)
-	ctx = callError(ctx, hooks, terr)
+	ctx = CallError(ctx, hooks, terr)
 
 	resp.Header().Set("Content-Type", "application/json") // Error responses are always JSON (instead of protobuf)
 	resp.WriteHeader(statusCode)                          // HTTP response status code
@@ -78,7 +81,7 @@ func writeError(ctx context.Context, resp http.ResponseWriter, err error, hooks 
 		log.Printf("unable to send error message %q: %s", terr, err2)
 	}
 
-	callResponseSent(ctx, hooks)
+	CallResponseSent(ctx, hooks)
 }
 
 // urlBase helps ensure that addr specifies a scheme. If it is unparsable
@@ -99,7 +102,7 @@ func urlBase(addr string) string {
 // closebody closes a response or request body and just logs
 // any error encountered while closing, since errors are
 // considered very unusual.
-func closebody(body io.Closer) {
+func Closebody(body io.Closer) {
 	if err := body.Close(); err != nil {
 		log.Println("error closing body:", err.Error())
 	}
@@ -199,7 +202,6 @@ func doProtobufRequest(ctx context.Context, client HTTPClient, url string, in, o
 	return nil
 }
 
-
 // doJSONRequest is common code to make a request to the remote  service.
 func doJSONRequest(ctx context.Context, client HTTPClient, url string, in, out proto.Message) (err error) {
 
@@ -241,7 +243,7 @@ func doJSONRequest(ctx context.Context, client HTTPClient, url string, in, out p
 		return errors.ClientError("failed to unmarshal json response", err)
 	}
 	if err = ctx.Err(); err != nil {
-		return  errors.ClientError("aborted because context was done", err)
+		return errors.ClientError("aborted because context was done", err)
 	}
 	return nil
 }
@@ -350,7 +352,7 @@ func isHTTPRedirect(status int) bool {
 }
 
 // Call .ServerHooks.RequestReceived if the hook is available
-func callRequestReceived(ctx context.Context, h *hooks.ServerHooks) (context.Context, error) {
+func CallRequestReceived(ctx context.Context, h *hooks.ServerHooks) (context.Context, error) {
 	if h == nil || h.RequestReceived == nil {
 		return ctx, nil
 	}
@@ -358,7 +360,7 @@ func callRequestReceived(ctx context.Context, h *hooks.ServerHooks) (context.Con
 }
 
 // Call .ServerHooks.RequestRouted if the hook is available
-func callRequestRouted(ctx context.Context, h *hooks.ServerHooks) (context.Context, error) {
+func CallRequestRouted(ctx context.Context, h *hooks.ServerHooks) (context.Context, error) {
 	if h == nil || h.RequestRouted == nil {
 		return ctx, nil
 	}
@@ -366,7 +368,7 @@ func callRequestRouted(ctx context.Context, h *hooks.ServerHooks) (context.Conte
 }
 
 // Call .ServerHooks.ResponsePrepared if the hook is available
-func callResponsePrepared(ctx context.Context, h *hooks.ServerHooks) context.Context {
+func CallResponsePrepared(ctx context.Context, h *hooks.ServerHooks) context.Context {
 	if h == nil || h.ResponsePrepared == nil {
 		return ctx
 	}
@@ -374,7 +376,7 @@ func callResponsePrepared(ctx context.Context, h *hooks.ServerHooks) context.Con
 }
 
 // Call .ServerHooks.ResponseSent if the hook is available
-func callResponseSent(ctx context.Context, h *hooks.ServerHooks) {
+func CallResponseSent(ctx context.Context, h *hooks.ServerHooks) {
 	if h == nil || h.ResponseSent == nil {
 		return
 	}
@@ -382,10 +384,9 @@ func callResponseSent(ctx context.Context, h *hooks.ServerHooks) {
 }
 
 // Call .ServerHooks.Error if the hook is available
-func callError(ctx context.Context, h *hooks.ServerHooks, err errors.Error) context.Context {
+func CallError(ctx context.Context, h *hooks.ServerHooks, err errors.Error) context.Context {
 	if h == nil || h.Error == nil {
 		return ctx
 	}
 	return h.Error(ctx, err)
 }
-

@@ -6,7 +6,7 @@ import "fmt"
 const commentTpl string = `
 {{if .Comment }}
 	{{range $i, $line := .Comment}}
-             "{{- $line}}"
+             // {{- $line}}
 	{{end}}
 {{end}}
 `
@@ -21,7 +21,7 @@ type CommentGenerator struct {
 	CommentMetaData CommentMetaData
 }
 
-func NewGoComment() (*CommentGenerator) {
+func NewGoComment() *CommentGenerator {
 
 	commentGen := new(CommentGenerator)
 	commentGen.TplName = commentTplName
@@ -38,10 +38,6 @@ func (gen *CommentGenerator) Pf(format string, a ...interface{}) {
 	gen.CommentMetaData.Comment = append(gen.CommentMetaData.Comment, fmt.Sprintf(format, a))
 }
 
-func (gen *CommentGenerator) NewLine() {
-	gen.CommentMetaData.Comment = append(gen.CommentMetaData.Comment, "\n")
-}
-
 func (gen *CommentGenerator) Render() (string, error) {
 	s, err := gen.renderAndFormat(gen.CommentMetaData)
 	if err != nil {
@@ -49,4 +45,3 @@ func (gen *CommentGenerator) Render() (string, error) {
 	}
 	return s, err
 }
-
