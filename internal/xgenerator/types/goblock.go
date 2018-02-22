@@ -256,7 +256,7 @@ func (gen *GoBlockGenerator) DefOperation(varName string, rightSide string, oper
 	return nil
 }
 
-func (gen *GoBlockGenerator) DefAssert(vars []string, varName, typ string) error {
+func (gen *GoBlockGenerator) DefAssert(vars []string, varName string, typ TypeReference) error {
 
 	if len(vars) == 0 {
 		return NewGeneratorErrorString(gen, "vars is missing")
@@ -274,11 +274,11 @@ func (gen *GoBlockGenerator) DefAssert(vars []string, varName, typ string) error
 		return NewGeneratorError(gen, err)
 	}
 
-	if typ == "" {
+	if typ.GetName() == "" {
 		return NewGeneratorErrorString(gen, "type is missing")
 	}
 
-	gen.MetaData.Lines = append(gen.MetaData.Lines, fmt.Sprintf(DefAssertTpl, identifierList(vars), Identifier(varName), typ))
+	gen.MetaData.Lines = append(gen.MetaData.Lines, fmt.Sprintf(DefAssertTpl, identifierList(vars), Identifier(varName), typ.GetName()))
 	return nil
 }
 
@@ -427,7 +427,16 @@ func (gen *GoBlockGenerator) TypeSwitch(switchGenerator SwitchGenerator) error {
 	if err != nil {
 		return err
 	}
-	gen.MetaData.Lines = append(gen.MetaData.Lines, code)
+	gen.MetaData.Lines = append(gen.MetaData.Lines, code+"\n")
+	return nil
+}
+
+func (gen *GoBlockGenerator) SliceLiteral(sliceGenerator SliceLiteralGenerator) error {
+	code, err := sliceGenerator.Render()
+	if err != nil {
+		return err
+	}
+	gen.MetaData.Lines = append(gen.MetaData.Lines, code+"\n")
 	return nil
 }
 
@@ -439,9 +448,9 @@ func (gen *GoBlockGenerator) InitStruct(statement string, initStructGenerator *I
 
 	var format string
 	if pointerReference {
-		format = fmt.Sprintf("%s &%s", statement, s)
+		format = fmt.Sprintf("%s &%s \n", statement, s)
 	} else {
-		format = fmt.Sprintf("%s %s", statement, s)
+		format = fmt.Sprintf("%s %s \n", statement, s)
 	}
 
 	gen.MetaData.Lines = append(gen.MetaData.Lines, format)

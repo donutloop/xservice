@@ -209,7 +209,7 @@ func (gen *FileGenerator) Const(g *ConstGenerator) error {
 
 
 func (gen *FileGenerator) Var(varObject string) error {
-	gen.FileMetaData.Consts = append(gen.FileMetaData.Vars, varObject)
+	gen.FileMetaData.Vars = append(gen.FileMetaData.Vars, varObject)
 	return nil
 }
 

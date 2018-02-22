@@ -86,7 +86,7 @@ func WriteErrorAndTriggerHooks(ctx context.Context, resp http.ResponseWriter, er
 
 // urlBase helps ensure that addr specifies a scheme. If it is unparsable
 // as a URL, it returns addr unchanged.
-func urlBase(addr string) string {
+func UrlBase(addr string) string {
 	// If the addr specifies a scheme, use it. If not, default to
 	// http. If url.Parse fails on it, return it unchanged.
 	url, err := url.Parse(addr)
@@ -203,7 +203,7 @@ func doProtobufRequest(ctx context.Context, client HTTPClient, url string, in, o
 }
 
 // doJSONRequest is common code to make a request to the remote  service.
-func doJSONRequest(ctx context.Context, client HTTPClient, url string, in, out proto.Message) (err error) {
+func DoJSONRequest(ctx context.Context, client HTTPClient, url string, in, out proto.Message) (err error) {
 
 	reqBody := bytes.NewBuffer(nil)
 	marshaler := &jsonpb.Marshaler{OrigName: true}
@@ -257,7 +257,7 @@ func doJSONRequest(ctx context.Context, client HTTPClient, url string, in, out p
 // policy - if so, we'll run through that policy first.
 //
 // Because this requires modifying the http.Client, we make a new copy of the client and return it.
-func withoutRedirects(in *http.Client) *http.Client {
+func WithoutRedirects(in *http.Client) *http.Client {
 	copy := *in
 	copy.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 		if in.CheckRedirect != nil {

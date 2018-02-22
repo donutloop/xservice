@@ -296,6 +296,12 @@ func (s *Server) generateService(fileDescriptor *descriptor.FileDescriptorProto,
 	}
 
 	// Server
+	goFile, err = s.generateClient("JSON", fileDescriptor, service, goFile)
+	if err != nil {
+		return nil, err
+	}
+
+	// Server
 	goFile, err = s.generateServer(fileDescriptor, service, goFile)
 	if err != nil {
 		return nil, err
@@ -371,6 +377,157 @@ func (s *Server) generatServiceInterface(file *descriptor.FileDescriptorProto, s
 	}
 
 	return goFile, nil
+}
+
+func (s *Server) generateClient(name string, fileDescriptor *descriptor.FileDescriptorProto, service *descriptor.ServiceDescriptorProto, goFile *types.FileGenerator) (*types.FileGenerator, error) {
+	servName := serviceName(service)
+	structName := unexported(servName) + name + "Client"
+	newClientFunc := "New" + servName + name + "Client"
+
+	methCnt := strconv.Itoa(len(service.Method))
+
+	// Server implementation.
+	structGenerator, err := types.NewGoStruct(structName, true)
+	if err != nil {
+		return nil, err
+	}
+
+	structGenerator.AddUnexportedField("client", types.NewUnsafeTypeReference("transport.HTTPClient"), "")
+	structGenerator.AddUnexportedField("urls", types.NewUnsafeTypeReference(fmt.Sprintf("[%s]string", methCnt)), "")
+
+	goFile, err = s.generateClientConstructor(newClientFunc, structName, service, goFile)
+	if err != nil {
+		return nil, err
+	}
+
+	structGenerator, err = s.generateClientEndpoints(name, fileDescriptor, service, structGenerator)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := goFile.TypesWithMethods(structGenerator); err != nil {
+		return nil, err
+	}
+
+	return goFile, nil
+}
+
+func (s *Server) generateClientConstructor(newClientFuncName,structName string, service *descriptor.ServiceDescriptorProto, goFile *types.FileGenerator) (*types.FileGenerator, error) {
+
+	pathPrefixConst := serviceName(service) + "PathPrefix"
+
+	f, err  := types.NewGoFunc(newClientFuncName, []*types.Parameter{
+		{
+			NameOfParameter: "addr",
+			Typ: types.String,
+		},
+		{
+			NameOfParameter: "client",
+			Typ: types.NewUnsafeTypeReference("transport.HTTPClient"),
+		},
+	},
+		[]types.TypeReference{
+			types.NewUnsafeTypeReference(serviceName(service)),
+		})
+	if err != nil {
+		return nil, err
+	}
+
+	f.DefAssginCall([]string{"URLBase"}, types.NewUnsafeTypeReference("transport.UrlBase"), []string{"addr"})
+	f.DefOperation("prefix", "URLBase", token.ADD , pathPrefixConst)
+
+	urlsSlice, err := types.NewGoSliceLiteral("urls", types.String, len(service.Method))
+	if err !=  nil {
+		return nil, err
+	}
+	for _, method := range service.Method {
+		urlsSlice.Append(fmt.Sprintf(`prefix + "%s"`, methodName(method)))
+	}
+
+	if err := f.SliceLiteral(*urlsSlice); err != nil {
+		return nil, err
+	}
+
+	f.DefAssert([]string{"httpClient", "ok"}, "client", types.NewUnsafeTypeReference("*http.Client"))
+	f.DefIfBegin("ok", token.EQL, "true")
+
+	initStructGeneratorForHttpClient, err := types.NewInitGoStruct(strings.Title(structName))
+	if err != nil {
+		return nil, err
+	}
+
+	f.DefCall([]string{"httpClient"}, types.NewUnsafeTypeReference("transport.WithoutRedirects"), []string{"httpClient"})
+	initStructGeneratorForHttpClient.AddUnexportedValueToField("client", "httpClient")
+	initStructGeneratorForHttpClient.AddUnexportedValueToField("urls", "urls")
+
+	if err := f.InitStruct("return", initStructGeneratorForHttpClient, true); err != nil {
+		return nil, err
+	}
+
+	f.CloseIf()
+
+	initStructGenerator, err := types.NewInitGoStruct(strings.Title(structName))
+	if err != nil {
+		return nil, err
+	}
+
+	initStructGenerator.AddUnexportedValueToField("client", "client")
+	initStructGenerator.AddUnexportedValueToField("urls", "urls")
+
+	if err := f.InitStruct("return", initStructGenerator, true); err != nil {
+		return nil, err
+	}
+
+	if err := goFile.Func(f); err != nil {
+		return nil, err
+	}
+
+	return goFile, nil
+}
+
+func (s *Server) generateClientEndpoints(name string, fileDescriptor *descriptor.FileDescriptorProto, service *descriptor.ServiceDescriptorProto, structGenerator *types.StructGenerator) (*types.StructGenerator, error) {
+
+	for i, method := range service.Method {
+		methName := methodName(method)
+		pkgName := pkgName(fileDescriptor)
+		servName := serviceName(service)
+		inputType, err := s.goTypeName(method.GetInputType())
+		if err != nil {
+			return nil, err
+		}
+		outputType, err := s.goTypeName(method.GetOutputType())
+		if err != nil {
+			return nil, err
+		}
+
+		method, err := types.NewGoMethod("c",  fmt.Sprintf("*%s", structGenerator.StructMetaData.Name), methName, []*types.Parameter{
+			{
+				NameOfParameter: "ctx",
+				Typ:             types.NewUnsafeTypeReference("context.Context"),
+			},
+			{
+				NameOfParameter: "in",
+				Typ:             types.NewUnsafeTypeReference(fmt.Sprintf("*%s", inputType)),
+			},
+		}, []types.TypeReference{
+			types.NewUnsafeTypeReference(fmt.Sprintf("*%s", outputType)),
+			types.NewUnsafeTypeReference("error"),
+		}, "")
+
+		if err != nil {
+			return nil, err
+		}
+
+		method.DefCall([]string{"ctx"}, types.NewUnsafeTypeReference("ctxsetters.WithPackageName"), []string{"ctx", `"` + pkgName + `"`})
+		method.DefCall([]string{"ctx"}, types.NewUnsafeTypeReference("ctxsetters.WithServiceName"), []string{"ctx", `"` + servName + `"`})
+		method.DefCall([]string{"ctx"}, types.NewUnsafeTypeReference("ctxsetters.WithMethodName"), []string{"ctx", `"` + methName + `"`})
+		method.DefNew("out",types.NewUnsafeTypeReference(outputType))
+		method.DefAssginCall([]string{"err"}, types.NewUnsafeTypeReference(fmt.Sprintf("transport.Do%sRequest", name)), []string{"ctx", "c.client", fmt.Sprintf("c.urls[%s]",strconv.Itoa(i)), "in", "out"})
+		method.Return([]string{"out", "err"})
+		structGenerator.AddMethod(method)
+	}
+
+	return structGenerator, nil
 }
 
 func (s *Server) generateServer(fileDescriptor *descriptor.FileDescriptorProto, service *descriptor.ServiceDescriptorProto, goFile *types.FileGenerator) (*types.FileGenerator, error) {
@@ -499,8 +656,9 @@ func (s *Server) generateServerRouting(file *descriptor.FileDescriptorProto, ser
 		return nil, err
 	}
 
-	goFile.Const(constGenerator)
-
+	if err := goFile.Const(constGenerator); err != nil {
+		return nil, err
+	}
 
 	method, err := types.NewGoMethod("s",  fmt.Sprintf("*%s", structGenerator.StructMetaData.Name), "ServeHTTP", []*types.Parameter{
 		{
