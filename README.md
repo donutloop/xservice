@@ -73,6 +73,29 @@ func main() {
 }
 ```
 
+ Now you can just use the auto-generated Client to make remote calls to your new service:
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+
+	pb "github.com/donutloop/xservice-example/helloworld"
+)
+
+func main() {
+	client := pb.NewHelloWorldProtobufClient("http://localhost:8080", &http.Client{})
+
+	resp, err := client.Hello(context.Background(), &pb.HelloReq{Subject: "World"})
+	if err == nil {
+		fmt.Println(resp.Text) // prints "Hello World"
+	}
+}
+```
+
 ## QuickStart for developers
 
 Please refer [**docs/DeveloperQuickStart.md**](https://github.com/donutloop/xservice/blob/master/docs/DeveloperQuickstartGuide.md)

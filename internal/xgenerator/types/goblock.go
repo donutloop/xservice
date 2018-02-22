@@ -442,7 +442,7 @@ func (gen *GoBlockGenerator) SliceLiteral(sliceGenerator SliceLiteralGenerator) 
 
 func (gen *GoBlockGenerator) InitStruct(statement string, initStructGenerator *InitStructGenerator, pointerReference bool) error {
 	s, err := initStructGenerator.Render()
-	if err != nil  {
+	if err != nil {
 		return err
 	}
 

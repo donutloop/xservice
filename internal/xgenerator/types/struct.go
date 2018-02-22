@@ -84,7 +84,6 @@ func (gen *StructGenerator) Type(typ TypeReference, comment string) error {
 		return NewGeneratorErrorString(gen, "typ of exported field is missing")
 	}
 
-
 	field := &StructFieldTmplValues{
 		Type:              typ.GetName(),
 		CommentOfProperty: comment,

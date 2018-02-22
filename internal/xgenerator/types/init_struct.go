@@ -31,11 +31,11 @@ func NewInitGoStruct(typ string) (*InitStructGenerator, error) {
 	return &initStructGenerator, nil
 }
 
-func (gen *InitStructGenerator) AddUnexportedValueToField(name, value string ) error {
+func (gen *InitStructGenerator) AddUnexportedValueToField(name, value string) error {
 	return gen.addValueToField(UnexportedIdentifier(name), value)
 }
 
-func (gen *InitStructGenerator) AddExportedValueToField(name, value string ) error {
+func (gen *InitStructGenerator) AddExportedValueToField(name, value string) error {
 	return gen.addValueToField(ExportedIdentifier(name), value)
 }
 

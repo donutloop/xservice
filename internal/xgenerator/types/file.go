@@ -207,12 +207,10 @@ func (gen *FileGenerator) Const(g *ConstGenerator) error {
 	return nil
 }
 
-
 func (gen *FileGenerator) Var(varObject string) error {
 	gen.FileMetaData.Vars = append(gen.FileMetaData.Vars, varObject)
 	return nil
 }
-
 
 func (gen *FileGenerator) Prototype(g *PrototypeGenerator) error {
 

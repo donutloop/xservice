@@ -342,4 +342,3 @@ type GeneratorError struct {
 func (e *GeneratorError) Error() string {
 	return fmt.Sprintf("%s: %s", reflect.TypeOf(e.generator).String(), e.err)
 }
-

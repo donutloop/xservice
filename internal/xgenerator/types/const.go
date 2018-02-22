@@ -7,9 +7,9 @@ const {{ .Name }} {{ .Typ }} = {{ .Value }}`
 const constTplName string = "const"
 
 type ConstMetadata struct {
-	Name  string
-	Value string
-	Typ   string
+	Name    string
+	Value   string
+	Typ     string
 	Comment string
 }
 

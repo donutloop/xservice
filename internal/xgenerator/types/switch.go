@@ -18,10 +18,10 @@ switch {{if .Typed }}{{.Typed }}:={{end}} {{.Var}}{{if .Typed }}.(type){{end}} {
 `
 
 type SwitchGeneratorMetaData struct {
-	Cases []Case
+	Cases       []Case
 	DefaultCase DefaultCase
-	Var   string
-	Typed string
+	Var         string
+	Typed       string
 }
 
 type SwitchGenerator struct {

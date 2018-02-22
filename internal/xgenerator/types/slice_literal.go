@@ -12,10 +12,10 @@ const sliceLiteralTpl string = `
 const sliceLiteralTplName string = "sliceLiteral"
 
 type SliceLiteralMetadata struct {
-	Name  string
+	Name   string
 	Values []string
-	Typ   string
-	Len   string
+	Typ    string
+	Len    string
 }
 
 type SliceLiteralGenerator struct {
@@ -45,9 +45,9 @@ func NewGoSliceLiteral(varName string, typeReference TypeReference, len int) (*S
 	}
 
 	sliceGen.SliceMetaData = SliceLiteralMetadata{
-		Name:  varName,
-		Typ:   typeReference.GetName(),
-		Len:   strconv.Itoa(len),
+		Name: varName,
+		Typ:  typeReference.GetName(),
+		Len:  strconv.Itoa(len),
 	}
 
 	sliceGen.TplName = sliceLiteralTplName
