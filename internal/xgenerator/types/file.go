@@ -32,8 +32,8 @@ package {{ .Pkg }}
 
 import (
 {{range $i, $ip := .Imports}}
-         {{if $ip.Alias }} {{$ip.Alias}} {{end}} "{{- $ip.ImportPath}}"
-{{end}}
+         {{if $ip.Alias }} {{$ip.Alias}} {{end}} "{{$ip.ImportPath}}"
+{{- end}}
 )
 
 {{range $i, $const := .Consts}}

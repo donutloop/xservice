@@ -19,7 +19,7 @@ import "fmt"
 const commentTpl string = `
 {{if .Comment }}
 	{{range $i, $line := .Comment}}
-             // {{- $line}}
+             // {{- $line -}}
 	{{end}}
 {{end}}
 `

@@ -29,7 +29,7 @@ import (
 )
 
 func main() {
-	g := goproto.NewServerGenerator()
+	g := goproto.NewAPIGenerator()
 	Main(g)
 }
 
