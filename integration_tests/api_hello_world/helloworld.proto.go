@@ -99,7 +99,7 @@ func (s *HelloWorldServer) serveHello(ctx context.Context, resp http.ResponseWri
 	}
 	modifiedHeader := strings.ToLower(header[:i])
 	modifiedHeader = strings.TrimSpace(modifiedHeader)
-	if modifiedHeader == "application/json" {
+	if modifiedHeader == xhttp.ApplicationJson {
 		s.serveHelloJSON(ctx, resp, req)
 	} else {
 		msg := fmt.Sprintf("unexpected Content-Type: %q", header)

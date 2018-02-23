@@ -697,7 +697,7 @@ func (a *API) generateServerMethod(service *descriptor.ServiceDescriptorProto, m
 	dispatcherMethod.DefAssginCall([]string{"modifiedHeader"}, types.NewUnsafeTypeReference("strings.ToLower"), []string{"header[:i]"})
 	dispatcherMethod.DefCall([]string{"modifiedHeader"}, types.NewUnsafeTypeReference("strings.TrimSpace"), []string{"modifiedHeader"})
 
-	dispatcherMethod.DefIfBegin("modifiedHeader", token.EQL, `"application/json"`)
+	dispatcherMethod.DefIfBegin("modifiedHeader", token.EQL, `xhttp.ApplicationJson`)
 	dispatcherMethod.Caller(types.NewUnsafeTypeReference(fmt.Sprintf("s.serve%sJSON", methName)), []string{"ctx", "resp", "req"})
 	dispatcherMethod.Else()
 	dispatcherMethod.DefAssginCall([]string{"msg"}, types.NewUnsafeTypeReference("fmt.Sprintf"), []string{`"unexpected Content-Type: %q"`, "header"})
