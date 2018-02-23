@@ -1,3 +1,20 @@
+// Copyright 2018 XService, All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may not
+// use this file except in compliance with the License. A copy of the License is
+// located at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// or in the "license" file accompanying this file. This file is distributed on
+// an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
+// This file contains some code from  https://github.com/twitchtv/twirp/:
+// Copyright 2018 Twitch Interactive, Inc.  All Rights Reserved.
+// https://github.com/twitchtv/twirp/
+
 package goproto
 
 import (
@@ -14,6 +31,7 @@ import (
 	"go/token"
 	"strconv"
 	"strings"
+	"github.com/donutloop/xservice/internal/xproto/xprotoutil"
 )
 
 type Server struct {
@@ -154,87 +172,6 @@ func (s *Server) generate(fileDescriptor *descriptor.FileDescriptorProto) (*plug
 
 	s.filesHandled++
 	return resp, nil
-}
-
-// deduceGenPkgName figures out the go package name to use for generated code.
-// Will try to use the explicit go_package setting in a file (if set, must be
-// consistent in all files). If no files have go_package set, then use the
-// protobuf package name (must be consistent in all files)
-func deduceGenPkgName(genFiles []*descriptor.FileDescriptorProto) (string, error) {
-	var genPkgName string
-	for _, f := range genFiles {
-		name, explicit := goPackageName(f)
-		if explicit {
-			name = types.Identifier(name)
-			if genPkgName != "" && genPkgName != name {
-				// Make sure they're all set consistently.
-				return "", errors.Errorf("files have conflicting go_package settings, must be the same: %q and %q", genPkgName, name)
-			}
-			genPkgName = name
-		}
-	}
-	if genPkgName != "" {
-		return genPkgName, nil
-	}
-
-	// If there is no explicit setting, then check the implicit package name
-	// (derived from the protobuf package name) of the files and make sure it's
-	// consistent.
-	for _, f := range genFiles {
-		name, _ := goPackageName(f)
-		name = types.Identifier(name)
-		if genPkgName != "" && genPkgName != name {
-			return "", errors.Errorf("files have conflicting package names, must be the same or overridden with go_package: %q and %q", genPkgName, name)
-		}
-		genPkgName = name
-	}
-
-	// All the files have the same name, so we're good.
-	return genPkgName, nil
-}
-
-// goPackageName returns the Go package name to use in the generated Go file.
-// The result explicitly reports whether the name came from an option go_package
-// statement. If explicit is false, the name was derived from the protocol
-// buffer's package statement or the input file name.
-func goPackageName(f *descriptor.FileDescriptorProto) (name string, explicit bool) {
-	// Does the file have a "go_package" option?
-	if _, pkg, ok := goPackageOption(f); ok {
-		return pkg, true
-	}
-
-	// Does the file have a package clause?
-	if pkg := f.GetPackage(); pkg != "" {
-		return pkg, false
-	}
-	// Use the file base name.
-	return types.BaseName(f.GetName()), false
-}
-
-// goPackageOption interprets the file's go_package option.
-// If there is no go_package, it returns ("", "", false).
-// If there's a simple name, it returns ("", pkg, true).
-// If the option implies an import path, it returns (impPath, pkg, true).
-func goPackageOption(f *descriptor.FileDescriptorProto) (impPath, pkg string, ok bool) {
-	pkg = f.GetOptions().GetGoPackage()
-	if pkg == "" {
-		return
-	}
-	ok = true
-	// The presence of a slash implies there's an import path.
-	slash := strings.LastIndex(pkg, "/")
-	if slash < 0 {
-		return
-	}
-	impPath, pkg = pkg, pkg[slash+1:]
-
-	// A semicolon-delimited suffix overrides the package name.
-	sc := strings.IndexByte(impPath, ';')
-	if sc < 0 {
-		return
-	}
-	impPath, pkg = impPath[:sc], impPath[sc+1:]
-	return
 }
 
 func (s *Server) generateFileHeader(file *descriptor.FileDescriptorProto, goFile *types.FileGenerator) (*types.FileGenerator, error) {
@@ -1074,4 +1011,44 @@ func prepareComment(comments typemap.DefinitionComments) (string, error) {
 // another variable that we control.
 func (t *Server) serviceMetadataVarName() string {
 	return fmt.Sprintf("xserviceFileDescriptor%d", t.filesHandled)
+}
+
+
+// deduceGenPkgName figures out the go package name to use for generated code.
+// Will try to use the explicit go_package setting in a file (if set, must be
+// consistent in all files). If no files have go_package set, then use the
+// protobuf package name (must be consistent in all files)
+func deduceGenPkgName(genFiles []*descriptor.FileDescriptorProto) (string, error) {
+	var genPkgName string
+	for _, f := range genFiles {
+		name, explicit := xprotoutil.GoPackageName(f)
+		name = types.BaseName(name)
+		if explicit {
+			name = types.Identifier(name)
+			if genPkgName != "" && genPkgName != name {
+				// Make sure they're all set consistently.
+				return "", errors.Errorf("files have conflicting go_package settings, must be the same: %q and %q", genPkgName, name)
+			}
+			genPkgName = name
+		}
+	}
+	if genPkgName != "" {
+		return genPkgName, nil
+	}
+
+	// If there is no explicit setting, then check the implicit package name
+	// (derived from the protobuf package name) of the files and make sure it's
+	// consistent.
+	for _, f := range genFiles {
+		name, _ := xprotoutil.GoPackageName(f)
+		name = types.BaseName(name)
+		name = types.Identifier(name)
+		if genPkgName != "" && genPkgName != name {
+			return "", errors.Errorf("files have conflicting package names, must be the same or overridden with go_package: %q and %q", genPkgName, name)
+		}
+		genPkgName = name
+	}
+
+	// All the files have the same name, so we're good.
+	return genPkgName, nil
 }

@@ -123,4 +123,4 @@ Please read and follow our [Code of Conduct](https://github.com/donutloop/xservi
 
 ## Credits
 
-* Parts of xservice thinking comes from twrip (https://github.com/twitchtv/twirp)
+* Parts of xservice thinking comes from twirp (https://github.com/twitchtv/twirp)
