@@ -146,7 +146,7 @@ func (s *Server) generate(fileDescriptor *descriptor.FileDescriptorProto) (*plug
 
 	s.generateFileHeader(fileDescriptor, goFile)
 
-	s.generateImports(fileDescriptor, goFile)
+	s.generateAdditionalImports(fileDescriptor, goFile)
 
 	// For each service, generate client stubs and server
 	for i, service := range fileDescriptor.Service {
@@ -206,12 +206,13 @@ func (s *Server) generateFileHeader(file *descriptor.FileDescriptorProto, goFile
 	return goFile, nil
 }
 
-func (t *Server) generateImports(file *descriptor.FileDescriptorProto, goFile *types.FileGenerator) {
+// generateAdditionalImports generate additional imports that are not in the standard lib from golang
+func (s *Server) generateAdditionalImports(file *descriptor.FileDescriptorProto, goFile *types.FileGenerator) {
+
 	if len(file.Service) == 0 {
 		return
 	}
 
-	//goFile.Import("proto", "github.com/golang/protobuf/proto")
 	goFile.Import("jsonpb", "github.com/golang/protobuf/jsonpb")
 	goFile.Import("", "github.com/donutloop/xservice/framework/transport")
 	goFile.Import("", "github.com/donutloop/xservice/framework/ctxsetters")
@@ -219,7 +220,6 @@ func (t *Server) generateImports(file *descriptor.FileDescriptorProto, goFile *t
 	goFile.Import("", "github.com/donutloop/xservice/framework/hooks")
 	goFile.Import("", "github.com/donutloop/xservice/framework/server")
 	goFile.Import("", "github.com/donutloop/xservice/framework/xhttp")
-
 }
 
 func (s *Server) generateService(fileDescriptor *descriptor.FileDescriptorProto, service *descriptor.ServiceDescriptorProto, goFile *types.FileGenerator, index int) (*types.FileGenerator, error) {
