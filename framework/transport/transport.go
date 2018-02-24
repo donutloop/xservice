@@ -115,9 +115,9 @@ func UrlBase(addr string) string {
 // closebody closes a response or request body and just logs
 // any error encountered while closing, since errors are
 // considered very unusual.
-func Closebody(body io.Closer) {
+func Closebody(body io.Closer, errorFunc LogErrorFunc) {
 	if err := body.Close(); err != nil {
-		log.Println("error closing body:", err.Error())
+		errorFunc("error closing body %v", err)
 	}
 }
 
@@ -132,7 +132,7 @@ func newRequest(ctx context.Context, url string, reqBody io.Reader, contentType 
 		req.Header = customHeader
 	}
 	req.Header.Set("Content-Type", contentType)
-	req.Header.Set("xservice-Version", "v5.2.0")
+	req.Header.Set("XService-Version", "v0.1.0")
 	return req, nil
 }
 
@@ -197,7 +197,7 @@ func doProtobufRequest(ctx context.Context, client HTTPClient, url string, in, o
 		return errors.ClientError("aborted because context was done", err)
 	}
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return errorFromResponse(resp)
 	}
 
@@ -218,7 +218,7 @@ func doProtobufRequest(ctx context.Context, client HTTPClient, url string, in, o
 // doJSONRequest is common code to make a request to the remote  service.
 func DoJSONRequest(ctx context.Context, client HTTPClient, url string, in, out proto.Message) (err error) {
 
-	reqBody := bytes.NewBuffer(nil)
+	reqBody := new(bytes.Buffer)
 	marshaler := &jsonpb.Marshaler{OrigName: true}
 	if err = marshaler.Marshal(reqBody, in); err != nil {
 		return errors.ClientError("failed to marshal json request", err)
@@ -247,7 +247,7 @@ func DoJSONRequest(ctx context.Context, client HTTPClient, url string, in, out p
 		return errors.ClientError("aborted because context was done", err)
 	}
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return errorFromResponse(resp)
 	}
 
@@ -297,8 +297,7 @@ func errorFromResponse(resp *http.Response) errors.Error {
 		//  clients don't follow redirects automatically,  only handles
 		// POST requests, redirects should only happen on GET and HEAD requests.
 		location := resp.Header.Get("Location")
-		msg := fmt.Sprintf("unexpected HTTP status code %d %q received, Location=%q", statusCode, statusText, location)
-		return ErrorFromIntermediary(statusCode, msg, location)
+		return ErrorFromIntermediary(statusCode, fmt.Sprintf("unexpected HTTP status code %d %q received, Location=%q", statusCode, statusText, location), location)
 	}
 
 	respBodyBytes, err := ioutil.ReadAll(resp.Body)
@@ -308,14 +307,12 @@ func errorFromResponse(resp *http.Response) errors.Error {
 	var tj errJSON
 	if err := json.Unmarshal(respBodyBytes, &tj); err != nil {
 		// Invalid JSON response; it must be an error from an intermediary.
-		msg := fmt.Sprintf("Error from intermediary with HTTP status code %d %q", statusCode, statusText)
-		return ErrorFromIntermediary(statusCode, msg, string(respBodyBytes))
+		return ErrorFromIntermediary(statusCode, fmt.Sprintf("Error from intermediary with HTTP status code %d %q", statusCode, statusText), string(respBodyBytes))
 	}
 
 	errorCode := errors.ErrorCode(tj.Code)
 	if !errors.IsValidErrorCode(errorCode) {
-		msg := "invalid type returned from server error response: " + tj.Code
-		return errors.InternalError(msg)
+		return errors.InternalError(fmt.Sprintf("invalid type returned from server error response: %s", tj.Code))
 	}
 
 	terr := errors.NewError(errorCode, tj.Msg)
@@ -334,15 +331,15 @@ func ErrorFromIntermediary(status int, msg string, bodyOrLocation string) errors
 		code = errors.Internal
 	} else {
 		switch status {
-		case 400: // Bad Request
+		case http.StatusBadRequest:
 			code = errors.Internal
-		case 401: // Unauthorized
+		case http.StatusUnauthorized:
 			code = errors.Unauthenticated
-		case 403: // Forbidden
+		case http.StatusForbidden:
 			code = errors.PermissionDenied
-		case 404: // Not Found
+		case http.StatusNotFound:
 			code = errors.BadRoute
-		case 429, 502, 503, 504: // Too Many Requests, Bad Gateway, Service Unavailable, Gateway Timeout
+		case http.StatusTooManyRequests, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
 			code = errors.Unavailable
 		default: // All other codes
 			code = errors.Unknown

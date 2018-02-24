@@ -768,7 +768,7 @@ func (a *API) generateServerJSONMethod(service *descriptor.ServiceDescriptorProt
 	serveMethod.Caller(types.NewUnsafeTypeReference("s.writeError"), []string{"ctx", "resp", "err"})
 	serveMethod.Return()
 	serveMethod.CloseIf()
-	serveMethod.Defer(types.NewUnsafeTypeReference("transport.Closebody"), []string{"req.Body"})
+	serveMethod.Defer(types.NewUnsafeTypeReference("transport.Closebody"), []string{"req.Body", "s.logErrorFunc"})
 	serveMethod.DefNew("reqContent", types.NewUnsafeTypeReference(inputType))
 	serveMethod.DefShortVar("unmarshaler", "jsonpb.Unmarshaler{AllowUnknownFields: true}")
 	serveMethod.DefCall([]string{"err"}, types.NewUnsafeTypeReference("unmarshaler.Unmarshal"), []string{"req.Body", "reqContent"})

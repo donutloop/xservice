@@ -20,7 +20,7 @@ lint:
 test: fmt vet
 	go install -v ./cmd/protoc-gen-xservice
 	go generate ./integration_tests/api_hello_world
-	ENVIRONMENT=test go test $(ALL_PACKAGES)
+	ENVIRONMENT=test go test -v $(ALL_PACKAGES)
 
 test-cover-html:
 	@echo "mode: count" > coverage-all.out

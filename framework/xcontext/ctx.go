@@ -105,7 +105,7 @@ func WithHTTPRequestHeaders(ctx context.Context, h http.Header) (context.Context
 		return nil, errors.New("provided header cannot set Content-Type")
 	}
 	if _, ok := h["XService-Version"]; ok {
-		return nil, errors.New("provided header cannot set Xservic-Version")
+		return nil, errors.New("provided header cannot set Xservice-Version")
 	}
 
 	copied := make(http.Header, len(h))
