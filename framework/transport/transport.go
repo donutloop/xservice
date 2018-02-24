@@ -334,15 +334,15 @@ func ErrorFromIntermediary(status int, msg string, bodyOrLocation string) errors
 		code = errors.Internal
 	} else {
 		switch status {
-		case 400: // Bad Request
+		case http.StatusBadRequest:
 			code = errors.Internal
-		case 401: // Unauthorized
+		case http.StatusUnauthorized:
 			code = errors.Unauthenticated
-		case 403: // Forbidden
+		case http.StatusForbidden:
 			code = errors.PermissionDenied
-		case 404: // Not Found
+		case http.StatusNotFound:
 			code = errors.BadRoute
-		case 429, 502, 503, 504: // Too Many Requests, Bad Gateway, Service Unavailable, Gateway Timeout
+		case http.StatusTooManyRequests, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
 			code = errors.Unavailable
 		default: // All other codes
 			code = errors.Unknown
