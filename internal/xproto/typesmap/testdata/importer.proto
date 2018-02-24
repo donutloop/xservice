@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package twirp.internal.gen.typemap.testdata.importer;
+package internal.gen.typemap.testdata.importer;
 
 import "root_pkg.proto";
 

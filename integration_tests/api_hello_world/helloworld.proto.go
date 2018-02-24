@@ -15,11 +15,11 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/donutloop/xservice/framework/ctxsetters"
 	"github.com/donutloop/xservice/framework/errors"
 	"github.com/donutloop/xservice/framework/hooks"
 	"github.com/donutloop/xservice/framework/server"
 	"github.com/donutloop/xservice/framework/transport"
+	"github.com/donutloop/xservice/framework/xcontext"
 	"github.com/donutloop/xservice/framework/xhttp"
 	jsonpb "github.com/golang/protobuf/jsonpb"
 )
@@ -42,9 +42,9 @@ type HelloWorldJSONClient struct {
 }
 
 func (c *HelloWorldJSONClient) Hello(ctx context.Context, in *HelloReq) (*HelloResp, error) {
-	ctx = ctxsetters.WithPackageName(ctx, "example.helloworld")
-	ctx = ctxsetters.WithServiceName(ctx, "HelloWorld")
-	ctx = ctxsetters.WithMethodName(ctx, "Hello")
+	ctx = xcontext.WithPackageName(ctx, "example.helloworld")
+	ctx = xcontext.WithServiceName(ctx, "HelloWorld")
+	ctx = xcontext.WithMethodName(ctx, "Hello")
 	out := new(HelloResp)
 	err := transport.DoJSONRequest(ctx, c.client, c.urls[0], in, out)
 	return out, err
@@ -61,9 +61,9 @@ func (s *HelloWorldServer) writeError(ctx context.Context, resp http.ResponseWri
 
 func (s *HelloWorldServer) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
-	ctx = ctxsetters.WithPackageName(ctx, "example.helloworld")
-	ctx = ctxsetters.WithServiceName(ctx, "HelloWorld")
-	ctx = ctxsetters.WithResponseWriter(ctx, resp)
+	ctx = xcontext.WithPackageName(ctx, "example.helloworld")
+	ctx = xcontext.WithServiceName(ctx, "HelloWorld")
+	ctx = xcontext.WithResponseWriter(ctx, resp)
 	var err error
 	ctx, err = transport.CallRequestReceived(ctx, s.hooks)
 	if err != nil {
@@ -111,7 +111,7 @@ func (s *HelloWorldServer) serveHello(ctx context.Context, resp http.ResponseWri
 
 func (s *HelloWorldServer) serveHelloJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
 	var err error
-	ctx = ctxsetters.WithMethodName(ctx, "Hello")
+	ctx = xcontext.WithMethodName(ctx, "Hello")
 	ctx, err = transport.CallRequestRouted(ctx, s.hooks)
 	if err != nil {
 		s.writeError(ctx, resp, err)
@@ -162,7 +162,7 @@ func (s *HelloWorldServer) serveHelloJSON(ctx context.Context, resp http.Respons
 		s.writeError(ctx, resp, terr)
 		return
 	}
-	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	ctx = xcontext.WithStatusCode(ctx, http.StatusOK)
 	req.Header.Set(xhttp.ContentTypeHeader, xhttp.ApplicationJson)
 	resp.WriteHeader(http.StatusOK)
 	respBytes := buff.Bytes()

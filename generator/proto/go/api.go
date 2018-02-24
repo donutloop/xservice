@@ -215,7 +215,7 @@ func (a *API) generateAdditionalImports(file *descriptor.FileDescriptorProto, go
 
 	goFile.Import("jsonpb", "github.com/golang/protobuf/jsonpb")
 	goFile.Import("", "github.com/donutloop/xservice/framework/transport")
-	goFile.Import("", "github.com/donutloop/xservice/framework/ctxsetters")
+	goFile.Import("", "github.com/donutloop/xservice/framework/xcontext")
 	goFile.Import("", "github.com/donutloop/xservice/framework/errors")
 	goFile.Import("", "github.com/donutloop/xservice/framework/hooks")
 	goFile.Import("", "github.com/donutloop/xservice/framework/server")
@@ -455,9 +455,9 @@ func (a *API) generateClientEndpoints(name string, fileDescriptor *descriptor.Fi
 			return nil, err
 		}
 
-		method.DefCall([]string{"ctx"}, types.NewUnsafeTypeReference("ctxsetters.WithPackageName"), []string{"ctx", `"` + pkgName + `"`})
-		method.DefCall([]string{"ctx"}, types.NewUnsafeTypeReference("ctxsetters.WithServiceName"), []string{"ctx", `"` + servName + `"`})
-		method.DefCall([]string{"ctx"}, types.NewUnsafeTypeReference("ctxsetters.WithMethodName"), []string{"ctx", `"` + methName + `"`})
+		method.DefCall([]string{"ctx"}, types.NewUnsafeTypeReference("xcontext.WithPackageName"), []string{"ctx", `"` + pkgName + `"`})
+		method.DefCall([]string{"ctx"}, types.NewUnsafeTypeReference("xcontext.WithServiceName"), []string{"ctx", `"` + servName + `"`})
+		method.DefCall([]string{"ctx"}, types.NewUnsafeTypeReference("xcontext.WithMethodName"), []string{"ctx", `"` + methName + `"`})
 		method.DefNew("out", types.NewUnsafeTypeReference(outputType))
 		method.DefAssginCall([]string{"err"}, types.NewUnsafeTypeReference(fmt.Sprintf("transport.Do%sRequest", name)), []string{"ctx", "c.client", fmt.Sprintf("c.urls[%s]", strconv.Itoa(i)), "in", "out"})
 		method.Return([]string{"out", "err"})
@@ -613,9 +613,9 @@ func (a *API) generateServerRouting(file *descriptor.FileDescriptorProto, servic
 	}
 
 	method.DefAssginCall([]string{"ctx"}, types.NewUnsafeTypeReference("req.Context"), nil)
-	method.DefCall([]string{"ctx"}, types.NewUnsafeTypeReference("ctxsetters.WithPackageName"), []string{"ctx", `"` + pkgName + `"`})
-	method.DefCall([]string{"ctx"}, types.NewUnsafeTypeReference("ctxsetters.WithServiceName"), []string{"ctx", `"` + servName + `"`})
-	method.DefCall([]string{"ctx"}, types.NewUnsafeTypeReference("ctxsetters.WithResponseWriter"), []string{"ctx", "resp"})
+	method.DefCall([]string{"ctx"}, types.NewUnsafeTypeReference("xcontext.WithPackageName"), []string{"ctx", `"` + pkgName + `"`})
+	method.DefCall([]string{"ctx"}, types.NewUnsafeTypeReference("xcontext.WithServiceName"), []string{"ctx", `"` + servName + `"`})
+	method.DefCall([]string{"ctx"}, types.NewUnsafeTypeReference("xcontext.WithResponseWriter"), []string{"ctx", "resp"})
 	method.DefLongVar("err", "error")
 	method.DefCall([]string{"ctx", "err"}, types.NewUnsafeTypeReference("transport.CallRequestReceived"), []string{"ctx", "s.hooks"})
 	method.DefIfBegin("err", token.NEQ, "nil")
@@ -750,7 +750,7 @@ func (a *API) generateServerJSONMethod(service *descriptor.ServiceDescriptorProt
 	// todo wrap call with error catcher
 
 	serveMethod.DefLongVar("err", "error")
-	serveMethod.DefCall([]string{"ctx"}, types.NewUnsafeTypeReference("ctxsetters.WithMethodName"), []string{"ctx", `"` + methName + `"`})
+	serveMethod.DefCall([]string{"ctx"}, types.NewUnsafeTypeReference("xcontext.WithMethodName"), []string{"ctx", `"` + methName + `"`})
 	serveMethod.DefCall([]string{"ctx", "err"}, types.NewUnsafeTypeReference("transport.CallRequestRouted"), []string{"ctx", "s.hooks"})
 	serveMethod.DefIfBegin("err", token.NEQ, "nil")
 	serveMethod.Caller(types.NewUnsafeTypeReference("s.writeError"), []string{"ctx", "resp", "err"})
@@ -804,7 +804,7 @@ func (a *API) generateServerJSONMethod(service *descriptor.ServiceDescriptorProt
 	serveMethod.Return()
 	serveMethod.CloseIf()
 
-	serveMethod.DefCall([]string{"ctx"}, types.NewUnsafeTypeReference("ctxsetters.WithStatusCode"), []string{"ctx", "http.StatusOK"})
+	serveMethod.DefCall([]string{"ctx"}, types.NewUnsafeTypeReference("xcontext.WithStatusCode"), []string{"ctx", "http.StatusOK"})
 	serveMethod.Caller(types.NewUnsafeTypeReference("req.Header.Set"), []string{"xhttp.ContentTypeHeader", "xhttp.ApplicationJson"})
 	serveMethod.Caller(types.NewUnsafeTypeReference("resp.WriteHeader"), []string{"http.StatusOK"})
 	serveMethod.DefAssginCall([]string{"respBytes"}, types.NewUnsafeTypeReference("buff.Bytes"), nil)
