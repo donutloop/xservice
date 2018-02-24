@@ -1,4 +1,5 @@
-# xservice
+
+![alt text](logo.png "XService")
 
 ## Introduction
 
