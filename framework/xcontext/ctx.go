@@ -15,7 +15,7 @@
 // Copyright 2018 Twitch Interactive, Inc.  All Rights Reserved.
 // https://github.com/twitchtv/twirp/
 
-package ctxsetters
+package xcontext
 
 import (
 	"context"
@@ -90,22 +90,22 @@ func StatusCode(ctx context.Context) (string, bool) {
 }
 
 // WithHTTPRequestHeaders stores an http.Header in a context.Context. When
-// using a Twirp-generated client, you can pass the returned context
+// using a generated client, you can pass the returned context
 // into any of the request methods, and the stored header will be
 // included in outbound HTTP requests.
 //
 // This can be used to set custom HTTP headers like authorization tokens or
-// client IDs. But note that HTTP headers are a Twirp implementation detail,
+// client IDs. But note that HTTP headers are a implementation detail,
 // only visible by middleware, not by the server implementation.
 //
 // WithHTTPRequestHeaders returns an error if the provided http.Header
-// would overwrite a header that is needed by Twirp, like "Content-Type".
+// would overwrite a header that is needed by, like "Content-Type".
 func WithHTTPRequestHeaders(ctx context.Context, h http.Header) (context.Context, error) {
 	if _, ok := h["Content-Type"]; ok {
 		return nil, errors.New("provided header cannot set Content-Type")
 	}
-	if _, ok := h["Twirp-Version"]; ok {
-		return nil, errors.New("provided header cannot set Twirp-Version")
+	if _, ok := h["XService-Version"]; ok {
+		return nil, errors.New("provided header cannot set Xservic-Version")
 	}
 
 	copied := make(http.Header, len(h))
@@ -127,11 +127,11 @@ func HTTPRequestHeaders(ctx context.Context) (http.Header, bool) {
 }
 
 // SetHTTPResponseHeader sets an HTTP header key-value pair using a context
-// provided by a twirp-generated server, or a child of that context.
+// provided by a generated server, or a child of that context.
 // The server will include the header in its response for that request context.
 //
 // This can be used to respond with custom HTTP headers like "Cache-Control".
-// But note that HTTP headers are a Twirp implementation detail,
+// But note that HTTP headers are a implementation detail,
 // only visible by middleware, not by the clients or their responses.
 //
 // The header will be ignored (noop) if the context is invalid (i.e. using a new
@@ -141,7 +141,7 @@ func HTTPRequestHeaders(ctx context.Context) (http.Header, bool) {
 // associated with that key.
 //
 // SetHTTPResponseHeader returns an error if the provided header key
-// would overwrite a header that is needed by Twirp, like "Content-Type".
+// would overwrite a header that is needed by xservice, like "Content-Type".
 func SetHTTPResponseHeader(ctx context.Context, key, value string) error {
 	if key == "Content-Type" {
 		return errors.New("header key can not be Content-Type")

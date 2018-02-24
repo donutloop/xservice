@@ -22,7 +22,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/donutloop/xservice/framework/ctxsetters"
+	"github.com/donutloop/xservice/framework/xcontext"
 	"github.com/donutloop/xservice/framework/errors"
 	"github.com/donutloop/xservice/framework/hooks"
 	"github.com/gogo/protobuf/jsonpb"
@@ -51,7 +51,7 @@ type HTTPClient interface {
 // a context through the .WithHTTPRequestHeaders function.
 // If there are no headers set, or if they have the wrong type, nil is returned.
 func getCustomHTTPReqHeaders(ctx context.Context) http.Header {
-	header, ok := ctxsetters.HTTPRequestHeaders(ctx)
+	header, ok := xcontext.HTTPRequestHeaders(ctx)
 	if !ok || header == nil {
 		return nil
 	}
@@ -82,7 +82,7 @@ func WriteErrorAndTriggerHooks(ctx context.Context, resp http.ResponseWriter, er
 	}
 
 	statusCode := errors.ServerHTTPStatusFromErrorCode(terr.Code())
-	ctx = ctxsetters.WithStatusCode(ctx, statusCode)
+	ctx = xcontext.WithStatusCode(ctx, statusCode)
 	ctx = CallError(ctx, hooks, terr)
 
 	resp.Header().Set("Content-Type", "application/json") // Error responses are always JSON (instead of protobuf)
@@ -403,3 +403,6 @@ func CallError(ctx context.Context, h *hooks.ServerHooks, err errors.Error) cont
 	}
 	return h.Error(ctx, err)
 }
+
+// LogErrorFunc logs critical errors
+type LogErrorFunc func(format string, args ...interface{})

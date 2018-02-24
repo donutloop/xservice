@@ -12,14 +12,15 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 
-	"github.com/donutloop/xservice/framework/ctxsetters"
 	"github.com/donutloop/xservice/framework/errors"
 	"github.com/donutloop/xservice/framework/hooks"
 	"github.com/donutloop/xservice/framework/server"
 	"github.com/donutloop/xservice/framework/transport"
+	"github.com/donutloop/xservice/framework/xcontext"
 	"github.com/donutloop/xservice/framework/xhttp"
 	jsonpb "github.com/golang/protobuf/jsonpb"
 )
@@ -36,34 +37,35 @@ type HelloWorld interface {
 	Hello(ctx context.Context, req *HelloReq) (*HelloResp, error)
 }
 
-type HelloWorldJSONClient struct {
+type helloWorldJSONClient struct {
 	client transport.HTTPClient
 	urls   [1]string
 }
 
-func (c *HelloWorldJSONClient) Hello(ctx context.Context, in *HelloReq) (*HelloResp, error) {
-	ctx = ctxsetters.WithPackageName(ctx, "example.helloworld")
-	ctx = ctxsetters.WithServiceName(ctx, "HelloWorld")
-	ctx = ctxsetters.WithMethodName(ctx, "Hello")
+func (c *helloWorldJSONClient) Hello(ctx context.Context, in *HelloReq) (*HelloResp, error) {
+	ctx = xcontext.WithPackageName(ctx, "example.helloworld")
+	ctx = xcontext.WithServiceName(ctx, "HelloWorld")
+	ctx = xcontext.WithMethodName(ctx, "Hello")
 	out := new(HelloResp)
 	err := transport.DoJSONRequest(ctx, c.client, c.urls[0], in, out)
 	return out, err
 }
 
-type HelloWorldServer struct {
+type helloWorldServer struct {
 	HelloWorld
-	hooks *hooks.ServerHooks
+	hooks        *hooks.ServerHooks
+	logErrorFunc transport.LogErrorFunc
 }
 
-func (s *HelloWorldServer) writeError(ctx context.Context, resp http.ResponseWriter, err error) {
+func (s *helloWorldServer) writeError(ctx context.Context, resp http.ResponseWriter, err error) {
 	transport.WriteErrorAndTriggerHooks(ctx, resp, err, s.hooks)
 }
 
-func (s *HelloWorldServer) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+func (s *helloWorldServer) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
-	ctx = ctxsetters.WithPackageName(ctx, "example.helloworld")
-	ctx = ctxsetters.WithServiceName(ctx, "HelloWorld")
-	ctx = ctxsetters.WithResponseWriter(ctx, resp)
+	ctx = xcontext.WithPackageName(ctx, "example.helloworld")
+	ctx = xcontext.WithServiceName(ctx, "HelloWorld")
+	ctx = xcontext.WithResponseWriter(ctx, resp)
 	var err error
 	ctx, err = transport.CallRequestReceived(ctx, s.hooks)
 	if err != nil {
@@ -91,7 +93,7 @@ func (s *HelloWorldServer) ServeHTTP(resp http.ResponseWriter, req *http.Request
 
 }
 
-func (s *HelloWorldServer) serveHello(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+func (s *helloWorldServer) serveHello(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
 	header := req.Header.Get(xhttp.ContentTypeHeader)
 	i := strings.Index(header, ";")
 	if i == -1 {
@@ -109,9 +111,9 @@ func (s *HelloWorldServer) serveHello(ctx context.Context, resp http.ResponseWri
 	return
 }
 
-func (s *HelloWorldServer) serveHelloJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+func (s *helloWorldServer) serveHelloJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
 	var err error
-	ctx = ctxsetters.WithMethodName(ctx, "Hello")
+	ctx = xcontext.WithMethodName(ctx, "Hello")
 	ctx, err = transport.CallRequestRouted(ctx, s.hooks)
 	if err != nil {
 		s.writeError(ctx, resp, err)
@@ -125,6 +127,7 @@ func (s *HelloWorldServer) serveHelloJSON(ctx context.Context, resp http.Respons
 	if err != nil {
 		err = errors.WrapErr(err, "failed to parse request json")
 		terr := errors.InternalErrorWith(err)
+		s.logErrorFunc("%v", err)
 		s.writeError(ctx, resp, terr)
 		return
 	}
@@ -149,6 +152,7 @@ func (s *HelloWorldServer) serveHelloJSON(ctx context.Context, resp http.Respons
 	}
 	if respContent == nil {
 		terr := errors.InternalError("received a nil * HelloResp, and nil error while calling Hello. nil responses are not supported")
+		s.logErrorFunc("%v", err)
 		s.writeError(ctx, resp, terr)
 		return
 	}
@@ -159,25 +163,28 @@ func (s *HelloWorldServer) serveHelloJSON(ctx context.Context, resp http.Respons
 	if err != nil {
 		err = errors.WrapErr(err, "failed to marshal json response")
 		terr := errors.InternalErrorWith(err)
+		s.logErrorFunc("%v", err)
 		s.writeError(ctx, resp, terr)
 		return
 	}
-	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	ctx = xcontext.WithStatusCode(ctx, http.StatusOK)
 	req.Header.Set(xhttp.ContentTypeHeader, xhttp.ApplicationJson)
 	resp.WriteHeader(http.StatusOK)
 	respBytes := buff.Bytes()
 	_, err = resp.Write(respBytes)
 	if err != nil {
+		s.logErrorFunc("error while writing response to client, but already sent response status code to 200: %s", err)
+		resp.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	transport.CallResponseSent(ctx, s.hooks)
 }
 
-func (s *HelloWorldServer) ServiceDescriptor() ([]uint8, int) {
+func (s *helloWorldServer) ServiceDescriptor() ([]uint8, int) {
 	return xserviceFileDescriptor0, 0
 }
 
-func (s *HelloWorldServer) ProtocGenXServiceVersion() string {
+func (s *helloWorldServer) ProtocGenXServiceVersion() string {
 	return "v0.1.0"
 }
 
@@ -190,19 +197,25 @@ func NewHelloWorldJSONClient(addr string, client transport.HTTPClient) HelloWorl
 	httpClient, ok := client.(*http.Client)
 	if ok == true {
 		httpClient = transport.WithoutRedirects(httpClient)
-		return &HelloWorldJSONClient{
+		return &helloWorldJSONClient{
 			client: httpClient,
 			urls:   urls,
 		}
 	}
-	return &HelloWorldJSONClient{
+	return &helloWorldJSONClient{
 		client: client,
 		urls:   urls,
 	}
 }
-func NewHelloWorldServer(svc HelloWorld, hooks *hooks.ServerHooks) server.Server {
-	return &HelloWorldServer{
+func NewHelloWorldServer(svc HelloWorld, hooks *hooks.ServerHooks, errorFunc ...transport.LogErrorFunc) server.Server {
+	server := &helloWorldServer{
 		HelloWorld: svc,
 		hooks:      hooks,
 	}
+	if len(errorFunc) == 1 {
+		server.logErrorFunc = errorFunc[0]
+	} else {
+		server.logErrorFunc = log.Printf
+	}
+	return server
 }

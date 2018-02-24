@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package twirp.internal.gen.typemap.testdata.public_reimporter;
+package internal.gen.typemap.testdata.public_reimporter;
 
 import public "public_importer.proto";
 
