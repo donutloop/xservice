@@ -19,6 +19,7 @@ package errors
 
 import (
 	"fmt"
+	"net/http"
 )
 
 // Error represents an error in a service call.
@@ -212,41 +213,41 @@ const (
 func ServerHTTPStatusFromErrorCode(code ErrorCode) int {
 	switch code {
 	case Canceled:
-		return 408 // RequestTimeout
+		return http.StatusRequestTimeout
 	case Unknown:
-		return 500 // Internal Server Error
+		return http.StatusInternalServerError
 	case InvalidArgument:
-		return 400 // BadRequest
+		return http.StatusBadRequest
 	case DeadlineExceeded:
-		return 408 // RequestTimeout
+		return http.StatusRequestTimeout
 	case NotFound:
-		return 404 // Not Found
+		return http.StatusNotFound
 	case BadRoute:
-		return 404 // Not Found
+		return http.StatusNotFound
 	case AlreadyExists:
-		return 409 // Conflict
+		return http.StatusConflict
 	case PermissionDenied:
-		return 403 // Forbidden
+		return http.StatusForbidden
 	case Unauthenticated:
-		return 401 // Unauthorized
+		return http.StatusUnauthorized
 	case ResourceExhausted:
-		return 403 // Forbidden
+		return http.StatusForbidden
 	case FailedPrecondition:
-		return 412 // Precondition Failed
+		return http.StatusPreconditionFailed
 	case Aborted:
-		return 409 // Conflict
+		return http.StatusConflict
 	case OutOfRange:
-		return 400 // Bad Request
+		return http.StatusBadRequest
 	case Unimplemented:
-		return 501 // Not Implemented
+		return http.StatusNotImplemented
 	case Internal:
-		return 500 // Internal Server Error
+		return http.StatusInternalServerError
 	case Unavailable:
-		return 503 // Service Unavailable
+		return http.StatusServiceUnavailable
 	case DataLoss:
-		return 500 // Internal Server Error
+		return http.StatusInternalServerError
 	case NoError:
-		return 200 // OK
+		return http.StatusOK
 	default:
 		return 0 // Invalid!
 	}
