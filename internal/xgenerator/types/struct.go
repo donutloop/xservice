@@ -59,7 +59,7 @@ type StructGenerator struct {
 	StructMetaData StructTmplValues
 }
 
-func NewGoStruct(name string, withoutGroup bool) (*StructGenerator, error) {
+func NewGoStruct(name string, withoutGroup bool, exported bool) (*StructGenerator, error) {
 
 	structGenerator := StructGenerator{}
 	if name == "" {
@@ -70,8 +70,12 @@ func NewGoStruct(name string, withoutGroup bool) (*StructGenerator, error) {
 		return nil, NewGeneratorError(structGenerator, err)
 	}
 
-	structGenerator.StructMetaData = StructTmplValues{
-		Name: ExportedIdentifier(name),
+	structGenerator.StructMetaData = StructTmplValues{}
+
+	if exported {
+		structGenerator.StructMetaData.Name = ExportedIdentifier(name)
+	} else {
+		structGenerator.StructMetaData.Name = UnexportedIdentifier(name)
 	}
 
 	if withoutGroup {

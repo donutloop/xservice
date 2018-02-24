@@ -20,7 +20,7 @@ import (
 
 func TestNewGoStructAndRender(t *testing.T) {
 
-	structGenerator, err := types.NewGoStruct("Strings", true)
+	structGenerator, err := types.NewGoStruct("Strings", true, true)
 	if err != nil {
 		t.Error(err)
 		return

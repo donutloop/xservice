@@ -403,3 +403,6 @@ func CallError(ctx context.Context, h *hooks.ServerHooks, err errors.Error) cont
 	}
 	return h.Error(ctx, err)
 }
+
+// LogErrorFunc logs critical errors
+type LogErrorFunc func(format string, args ...interface{})

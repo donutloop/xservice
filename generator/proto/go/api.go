@@ -324,7 +324,7 @@ func (a *API) generateClient(name string, fileDescriptor *descriptor.FileDescrip
 	methCnt := strconv.Itoa(len(service.Method))
 
 	// Server implementation.
-	structGenerator, err := types.NewGoStruct(structName, true)
+	structGenerator, err := types.NewGoStruct(structName, true, false)
 	if err != nil {
 		return nil, err
 	}
@@ -332,7 +332,7 @@ func (a *API) generateClient(name string, fileDescriptor *descriptor.FileDescrip
 	structGenerator.AddUnexportedField("client", types.NewUnsafeTypeReference("transport.HTTPClient"), "")
 	structGenerator.AddUnexportedField("urls", types.NewUnsafeTypeReference(fmt.Sprintf("[%s]string", methCnt)), "")
 
-	goFile, err = a.generateClientConstructor(newClientFunc, structName, service, goFile)
+	goFile, err = a.generateClientConstructor(newClientFunc, structGenerator.StructMetaData.Name, service, goFile)
 	if err != nil {
 		return nil, err
 	}
@@ -388,7 +388,7 @@ func (a *API) generateClientConstructor(newClientFuncName, structName string, se
 	f.DefAssert([]string{"httpClient", "ok"}, "client", types.NewUnsafeTypeReference("*http.Client"))
 	f.DefIfBegin("ok", token.EQL, "true")
 
-	initStructGeneratorForHttpClient, err := types.NewInitGoStruct(strings.Title(structName))
+	initStructGeneratorForHttpClient, err := types.NewInitGoStruct(structName)
 	if err != nil {
 		return nil, err
 	}
@@ -403,7 +403,7 @@ func (a *API) generateClientConstructor(newClientFuncName, structName string, se
 
 	f.CloseIf()
 
-	initStructGenerator, err := types.NewInitGoStruct(strings.Title(structName))
+	initStructGenerator, err := types.NewInitGoStruct(structName)
 	if err != nil {
 		return nil, err
 	}
@@ -469,13 +469,15 @@ func (a *API) generateClientEndpoints(name string, fileDescriptor *descriptor.Fi
 
 func (a *API) generateServer(fileDescriptor *descriptor.FileDescriptorProto, service *descriptor.ServiceDescriptorProto, goFile *types.FileGenerator) (*types.FileGenerator, error) {
 	// Server implementation.
-	structGenerator, err := types.NewGoStruct(serviceStruct(service), true)
+	structGenerator, err := types.NewGoStruct(serviceStruct(service), true, false)
 	if err != nil {
 		return nil, err
 	}
 
 	structGenerator.Type(types.NewUnsafeTypeReference(serviceName(service)), "")
 	structGenerator.AddUnexportedField("hooks", types.NewUnsafeTypeReference("*hooks.ServerHooks"), "")
+	structGenerator.AddUnexportedField("logErrorFunc", types.NewUnsafeTypeReference("transport.LogErrorFunc"), "")
+
 
 	goFile, err = a.generateServerConstructor(serviceName(service), structGenerator.StructMetaData.Name, goFile)
 	if err != nil {
@@ -525,6 +527,10 @@ func (a *API) generateServerConstructor(serverName, serverStructName string, goF
 			NameOfParameter: "hooks",
 			Typ:             types.NewUnsafeTypeReference("*hooks.ServerHooks"),
 		},
+		{
+			NameOfParameter: "errorFunc",
+			Typ:             types.NewUnsafeTypeReference("...transport.LogErrorFunc"),
+		},
 	},
 		[]types.TypeReference{
 			types.NewUnsafeTypeReference("server.Server"),
@@ -541,9 +547,16 @@ func (a *API) generateServerConstructor(serverName, serverStructName string, goF
 	initStructGenerator.AddExportedValueToField(serverName, "svc")
 	initStructGenerator.AddUnexportedValueToField("hooks", "hooks")
 
-	if err := f.InitStruct("return", initStructGenerator, true); err != nil {
+	if err := f.InitStruct("server :=", initStructGenerator, true); err != nil {
 		return nil, err
 	}
+
+	f.DefIfBegin("len(errorFunc)", token.EQL, "1")
+	f.StructAssignment("server", "logErrorFunc", "errorFunc[0]")
+	f.Else()
+	f.StructAssignment("server", "logErrorFunc", "log.Printf")
+	f.CloseIf()
+	f.Return([]string{"server"})
 
 	if err := goFile.Func(f); err != nil {
 		return nil, err
@@ -763,6 +776,7 @@ func (a *API) generateServerJSONMethod(service *descriptor.ServiceDescriptorProt
 	serveMethod.DefIfBegin("err", token.NEQ, "nil")
 	serveMethod.DefCall([]string{"err"}, types.NewUnsafeTypeReference("errors.WrapErr"), []string{"err", `"failed to parse request json"`})
 	serveMethod.DefAssginCall([]string{"terr"}, types.NewUnsafeTypeReference("errors.InternalErrorWith"), []string{"err"})
+	serveMethod.Caller(types.NewUnsafeTypeReference("s.logErrorFunc"), []string{`"%v"`, "err"})
 	serveMethod.Caller(types.NewUnsafeTypeReference("s.writeError"), []string{"ctx", "resp", "terr"})
 	serveMethod.Return()
 	serveMethod.CloseIf()
@@ -789,6 +803,7 @@ func (a *API) generateServerJSONMethod(service *descriptor.ServiceDescriptorProt
 	serveMethod.DefIfBegin("respContent", token.EQL, "nil")
 	msg := fmt.Sprintf(`"received a nil * %s, and nil error while calling %s. nil responses are not supported"`, outputType, methName)
 	serveMethod.DefAssginCall([]string{"terr"}, types.NewUnsafeTypeReference("errors.InternalError"), []string{msg})
+	serveMethod.Caller(types.NewUnsafeTypeReference("s.logErrorFunc"), []string{`"%v"`, "err"})
 	serveMethod.Caller(types.NewUnsafeTypeReference("s.writeError"), []string{"ctx", "resp", "terr"})
 	serveMethod.Return()
 	serveMethod.CloseIf()
@@ -800,6 +815,7 @@ func (a *API) generateServerJSONMethod(service *descriptor.ServiceDescriptorProt
 	serveMethod.DefIfBegin("err", token.NEQ, "nil")
 	serveMethod.DefCall([]string{"err"}, types.NewUnsafeTypeReference("errors.WrapErr"), []string{"err", `"failed to marshal json response"`})
 	serveMethod.DefAssginCall([]string{"terr"}, types.NewUnsafeTypeReference("errors.InternalErrorWith"), []string{"err"})
+	serveMethod.Caller(types.NewUnsafeTypeReference("s.logErrorFunc"), []string{`"%v"`, "err"})
 	serveMethod.Caller(types.NewUnsafeTypeReference("s.writeError"), []string{"ctx", "resp", "terr"})
 	serveMethod.Return()
 	serveMethod.CloseIf()
@@ -812,7 +828,8 @@ func (a *API) generateServerJSONMethod(service *descriptor.ServiceDescriptorProt
 	serveMethod.DefCall([]string{"_", "err"}, types.NewUnsafeTypeReference("resp.Write"), []string{"respBytes"})
 
 	serveMethod.DefIfBegin("err", token.NEQ, "nil")
-	// t.P(`    `, t.pkgs["log"], `.Printf("errored while writing response to client, but already sent response status code to 200: %s", err)`)
+	serveMethod.Caller(types.NewUnsafeTypeReference("s.logErrorFunc"), []string{`"error while writing response to client, but already sent response status code to 200: %s"`, "err"})
+	serveMethod.Caller(types.NewUnsafeTypeReference("resp.WriteHeader"), []string{"http.StatusInternalServerError"})
 	serveMethod.Return()
 	serveMethod.CloseIf()
 
