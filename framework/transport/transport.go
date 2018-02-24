@@ -132,7 +132,7 @@ func newRequest(ctx context.Context, url string, reqBody io.Reader, contentType 
 		req.Header = customHeader
 	}
 	req.Header.Set("Content-Type", contentType)
-	req.Header.Set("xservice-Version", "v0.1.0")
+	req.Header.Set("XService-Version", "v0.1.0")
 	return req, nil
 }
 
