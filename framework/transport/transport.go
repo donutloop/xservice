@@ -297,8 +297,7 @@ func errorFromResponse(resp *http.Response) errors.Error {
 		//  clients don't follow redirects automatically,  only handles
 		// POST requests, redirects should only happen on GET and HEAD requests.
 		location := resp.Header.Get("Location")
-		msg := fmt.Sprintf("unexpected HTTP status code %d %q received, Location=%q", statusCode, statusText, location)
-		return ErrorFromIntermediary(statusCode, msg, location)
+		return ErrorFromIntermediary(statusCode, fmt.Sprintf("unexpected HTTP status code %d %q received, Location=%q", statusCode, statusText, location), location)
 	}
 
 	respBodyBytes, err := ioutil.ReadAll(resp.Body)
@@ -308,14 +307,12 @@ func errorFromResponse(resp *http.Response) errors.Error {
 	var tj errJSON
 	if err := json.Unmarshal(respBodyBytes, &tj); err != nil {
 		// Invalid JSON response; it must be an error from an intermediary.
-		msg := fmt.Sprintf("Error from intermediary with HTTP status code %d %q", statusCode, statusText)
-		return ErrorFromIntermediary(statusCode, msg, string(respBodyBytes))
+		return ErrorFromIntermediary(statusCode,  fmt.Sprintf("Error from intermediary with HTTP status code %d %q", statusCode, statusText), string(respBodyBytes))
 	}
 
 	errorCode := errors.ErrorCode(tj.Code)
 	if !errors.IsValidErrorCode(errorCode) {
-		msg := "invalid type returned from server error response: " + tj.Code
-		return errors.InternalError(msg)
+		return errors.InternalError(fmt.Sprintf("invalid type returned from server error response: %s", tj.Code))
 	}
 
 	terr := errors.NewError(errorCode, tj.Msg)
