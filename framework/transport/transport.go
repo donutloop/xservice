@@ -132,7 +132,7 @@ func newRequest(ctx context.Context, url string, reqBody io.Reader, contentType 
 		req.Header = customHeader
 	}
 	req.Header.Set("Content-Type", contentType)
-	req.Header.Set("xservice-Version", "v5.2.0")
+	req.Header.Set("xservice-Version", "v0.1.0")
 	return req, nil
 }
 
@@ -197,7 +197,7 @@ func doProtobufRequest(ctx context.Context, client HTTPClient, url string, in, o
 		return errors.ClientError("aborted because context was done", err)
 	}
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return errorFromResponse(resp)
 	}
 
@@ -218,7 +218,7 @@ func doProtobufRequest(ctx context.Context, client HTTPClient, url string, in, o
 // doJSONRequest is common code to make a request to the remote  service.
 func DoJSONRequest(ctx context.Context, client HTTPClient, url string, in, out proto.Message) (err error) {
 
-	reqBody := bytes.NewBuffer(nil)
+	reqBody := new(bytes.Buffer)
 	marshaler := &jsonpb.Marshaler{OrigName: true}
 	if err = marshaler.Marshal(reqBody, in); err != nil {
 		return errors.ClientError("failed to marshal json request", err)
@@ -247,7 +247,7 @@ func DoJSONRequest(ctx context.Context, client HTTPClient, url string, in, out p
 		return errors.ClientError("aborted because context was done", err)
 	}
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return errorFromResponse(resp)
 	}
 
