@@ -178,7 +178,6 @@ func (gen *GoGenerator) convertToGenerators(elements interface{}) []Generator {
 		generator, ok := valueOfElements.Index(i).Interface().(Generator)
 		if !ok {
 			panic(errors.New("element is not a generator"))
-			fmt.Println("")
 		}
 		generators[i] = generator
 	}
