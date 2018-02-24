@@ -24,6 +24,7 @@ import (
 	"github.com/donutloop/xservice/internal/xgenerator/types"
 	"github.com/donutloop/xservice/internal/xproto"
 	"github.com/donutloop/xservice/internal/xproto/typesmap"
+	"github.com/donutloop/xservice/internal/xproto/xprotoutil"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	plugin "github.com/golang/protobuf/protoc-gen-go/plugin"
@@ -31,7 +32,6 @@ import (
 	"go/token"
 	"strconv"
 	"strings"
-	"github.com/donutloop/xservice/internal/xproto/xprotoutil"
 )
 
 type API struct {
@@ -477,7 +477,6 @@ func (a *API) generateServer(fileDescriptor *descriptor.FileDescriptorProto, ser
 	structGenerator.Type(types.NewUnsafeTypeReference(serviceName(service)), "")
 	structGenerator.AddUnexportedField("hooks", types.NewUnsafeTypeReference("*hooks.ServerHooks"), "")
 	structGenerator.AddUnexportedField("logErrorFunc", types.NewUnsafeTypeReference("transport.LogErrorFunc"), "")
-
 
 	goFile, err = a.generateServerConstructor(serviceName(service), structGenerator.StructMetaData.Name, goFile)
 	if err != nil {
@@ -1029,7 +1028,6 @@ func prepareComment(comments typemap.DefinitionComments) (string, error) {
 func (a *API) serviceMetadataVarName() string {
 	return fmt.Sprintf("xserviceFileDescriptor%d", a.filesHandled)
 }
-
 
 // deduceGenPkgName figures out the go package name to use for generated code.
 // Will try to use the explicit go_package setting in a file (if set, must be

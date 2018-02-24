@@ -21,9 +21,9 @@ Make sure you have your $GOPATH, $PATH setup correctly
 
 Clone or copy the code into $GOPATH/src/github.com/donutloop/xservice
 
-## Build & install xservice
+## install xservice
 
-```
+```bash
 $ go get -u github.com/golang/dep/cmd/dep
 
 # Download deps 
@@ -31,12 +31,17 @@ dep ensure
 
 cd $GOPATH/src/github.com/donutloop/xservice 
 $ go install -v ./...
-$ go generate ./...
 ```
 
 ## Run xservice
 
-```
+```bash
 $ cd $PROJECT
 $ protoc -I . service.proto --xservice_out=. --go_out=. 
+```
+
+## Test xservice 
+
+```bash
+$ make test
 ```
