@@ -119,7 +119,7 @@ func (s *helloWorldServer) serveHelloJSON(ctx context.Context, resp http.Respons
 		s.writeError(ctx, resp, err)
 		return
 	}
-	defer transport.Closebody(req.Body)
+	defer transport.Closebody(req.Body, s.logErrorFunc)
 
 	reqContent := new(HelloReq)
 	unmarshaler := jsonpb.Unmarshaler{AllowUnknownFields: true}

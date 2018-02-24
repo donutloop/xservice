@@ -115,9 +115,9 @@ func UrlBase(addr string) string {
 // closebody closes a response or request body and just logs
 // any error encountered while closing, since errors are
 // considered very unusual.
-func Closebody(body io.Closer) {
+func Closebody(body io.Closer, errorFunc LogErrorFunc) {
 	if err := body.Close(); err != nil {
-		log.Println("error closing body:", err.Error())
+		errorFunc("error closing body %v", err)
 	}
 }
 
@@ -307,7 +307,7 @@ func errorFromResponse(resp *http.Response) errors.Error {
 	var tj errJSON
 	if err := json.Unmarshal(respBodyBytes, &tj); err != nil {
 		// Invalid JSON response; it must be an error from an intermediary.
-		return ErrorFromIntermediary(statusCode,  fmt.Sprintf("Error from intermediary with HTTP status code %d %q", statusCode, statusText), string(respBodyBytes))
+		return ErrorFromIntermediary(statusCode, fmt.Sprintf("Error from intermediary with HTTP status code %d %q", statusCode, statusText), string(respBodyBytes))
 	}
 
 	errorCode := errors.ErrorCode(tj.Code)
