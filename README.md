@@ -1,6 +1,7 @@
 
 ![alt text](logo.png "XService")
 
+[![Build Status](https://travis-ci.org/donutloop/xservice.svg?branch=master)](https://travis-ci.org/donutloop/xservice)
 ## Introduction
 
 xservice is a simple generator library used for generating services quickly and easily for an proto buffer. 

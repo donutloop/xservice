@@ -1,0 +1,14 @@
+sudo: false
+language: go
+go:
+  - 1.7.x
+  - 1.8.x
+  - 1.9.x
+  - tip
+
+install:
+  - go get -u github.com/golang/dep/...
+  - dep ensure
+
+script:
+ - go test -race -v ./...
