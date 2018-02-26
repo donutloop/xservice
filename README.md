@@ -3,6 +3,7 @@
 
 [![Build Status](https://travis-ci.org/donutloop/xservice.svg?branch=master)](https://travis-ci.org/donutloop/xservice)
 [![Coverage Status](https://coveralls.io/repos/github/donutloop/xservice/badge.svg)](https://coveralls.io/github/donutloop/xservice)
+[![Go Report Card](https://goreportcard.com/badge/github.com/donutloop/xservice)](https://goreportcard.com/report/github.com/donutloop/xservice)
 ## Introduction
 
 xservice is a simple generator library used for generating services quickly and easily for an proto buffer. 
