@@ -2,7 +2,7 @@
 
 ## Requirements
 
-* Go 1.7+
+* Go 1.8+
 * protoc, the protobuf compiler. You need version 3+.
 * github.com/golang/protobuf/protoc-gen-go, the Go protobuf generator plugin. Get this with go get.
 
