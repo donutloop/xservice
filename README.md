@@ -77,8 +77,9 @@ func main() {
 }
 ```
 
- Now you can just use the auto-generated Client to make remote calls to your new service:
+ Now you can just use the auto-generated JSON or Protobuffer Client to make remote calls to your new service:
 
+##### JSON
 ```go
 package main
 
@@ -92,6 +93,29 @@ import (
 
 func main() {
 	client := pb.NewHelloWorldJSONClient("http://localhost:8080", &http.Client{})
+
+	resp, err := client.Hello(context.Background(), &pb.HelloReq{Subject: "World"})
+	if err == nil {
+		fmt.Println(resp.Text) // prints "Hello World"
+	}
+}
+```
+
+##### Protobuffer
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+
+	pb "github.com/donutloop/xservice-example/helloworld"
+)
+
+func main() {
+	client := pb.NewHelloWorldProtobufferClient("http://localhost:8080", &http.Client{})
 
 	resp, err := client.Hello(context.Background(), &pb.HelloReq{Subject: "World"})
 	if err == nil {
