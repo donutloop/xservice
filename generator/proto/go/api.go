@@ -34,6 +34,11 @@ import (
 	"strings"
 )
 
+const (
+	ServeJSON        string = "JSON"
+	ServeProtobuffer string = "Protobuffer"
+)
+
 type API struct {
 	filesHandled   int
 	currentPackage string // Go name of current package we're working on
@@ -232,8 +237,14 @@ func (a *API) generateService(fileDescriptor *descriptor.FileDescriptorProto, se
 		return nil, err
 	}
 
-	// Server
-	goFile, err = a.generateClient("JSON", fileDescriptor, service, goFile)
+	// JSON Client
+	goFile, err = a.generateClient(ServeJSON, fileDescriptor, service, goFile)
+	if err != nil {
+		return nil, err
+	}
+
+	// Protobuffer  Client
+	goFile, err = a.generateClient(ServeProtobuffer, fileDescriptor, service, goFile)
 	if err != nil {
 		return nil, err
 	}
@@ -711,26 +722,35 @@ func (a *API) generateServerMethod(service *descriptor.ServiceDescriptorProto, m
 
 	dispatcherMethod.DefIfBegin("modifiedHeader", token.EQL, `xhttp.ApplicationJson`)
 	dispatcherMethod.Caller(types.NewUnsafeTypeReference(fmt.Sprintf("s.serve%sJSON", methName)), []string{"ctx", "resp", "req"})
+	dispatcherMethod.Return(nil)
+	dispatcherMethod.DefElseIf("modifiedHeader", token.EQL, `xhttp.ApplicationProtobuf`)
+	dispatcherMethod.Caller(types.NewUnsafeTypeReference(fmt.Sprintf("s.serve%sProtobuffer", methName)), []string{"ctx", "resp", "req"})
+	dispatcherMethod.Return(nil)
 	dispatcherMethod.Else()
 	dispatcherMethod.DefAssginCall([]string{"msg"}, types.NewUnsafeTypeReference("fmt.Sprintf"), []string{`"unexpected Content-Type: %q"`, "header"})
 	dispatcherMethod.DefAssginCall([]string{"terr"}, types.NewUnsafeTypeReference("errors.BadRouteError"), []string{"msg", "req.Method", "req.URL.Path"})
 	dispatcherMethod.Caller(types.NewUnsafeTypeReference("s.writeError"), []string{"ctx", "resp", "terr"})
 	dispatcherMethod.CloseIf()
 
-	dispatcherMethod.Return(nil)
 	structGenerator.AddMethod(dispatcherMethod)
 
-	structGenerator, err = a.generateServerJSONMethod(service, method, structGenerator)
+	structGenerator, err = a.generateServerServeMethod(ServeJSON, service, method, structGenerator)
 	if err != nil {
 		return nil, err
 	}
+
+	structGenerator, err = a.generateServerServeMethod(ServeProtobuffer, service, method, structGenerator)
+	if err != nil {
+		return nil, err
+	}
+
 	return structGenerator, nil
 }
 
-func (a *API) generateServerJSONMethod(service *descriptor.ServiceDescriptorProto, method *descriptor.MethodDescriptorProto, structGenerator *types.StructGenerator) (*types.StructGenerator, error) {
+func (a *API) generateServerServeMethod(contentType string, service *descriptor.ServiceDescriptorProto, method *descriptor.MethodDescriptorProto, structGenerator *types.StructGenerator) (*types.StructGenerator, error) {
 	methName := types.CamelCase(method.GetName())
 
-	serveMethod, err := types.NewGoMethod("s", fmt.Sprintf("*%s", structGenerator.StructMetaData.Name), fmt.Sprintf("serve%sJSON", methName), []*types.Parameter{
+	serveMethod, err := types.NewGoMethod("s", fmt.Sprintf("*%s", structGenerator.StructMetaData.Name), fmt.Sprintf("serve%s%s", methName, contentType), []*types.Parameter{
 		{
 			NameOfParameter: "ctx",
 			Typ:             types.NewUnsafeTypeReference("context.Context"),
@@ -769,16 +789,40 @@ func (a *API) generateServerJSONMethod(service *descriptor.ServiceDescriptorProt
 	serveMethod.Return()
 	serveMethod.CloseIf()
 	serveMethod.Defer(types.NewUnsafeTypeReference("transport.Closebody"), []string{"req.Body", "s.logErrorFunc"})
-	serveMethod.DefNew("reqContent", types.NewUnsafeTypeReference(inputType))
-	serveMethod.DefShortVar("unmarshaler", "jsonpb.Unmarshaler{AllowUnknownFields: true}")
-	serveMethod.DefCall([]string{"err"}, types.NewUnsafeTypeReference("unmarshaler.Unmarshal"), []string{"req.Body", "reqContent"})
-	serveMethod.DefIfBegin("err", token.NEQ, "nil")
-	serveMethod.DefCall([]string{"err"}, types.NewUnsafeTypeReference("errors.WrapErr"), []string{"err", `"failed to parse request json"`})
-	serveMethod.DefAssginCall([]string{"terr"}, types.NewUnsafeTypeReference("errors.InternalErrorWith"), []string{"err"})
-	serveMethod.Caller(types.NewUnsafeTypeReference("s.logErrorFunc"), []string{`"%v"`, "err"})
-	serveMethod.Caller(types.NewUnsafeTypeReference("s.writeError"), []string{"ctx", "resp", "terr"})
-	serveMethod.Return()
-	serveMethod.CloseIf()
+
+	if contentType == ServeJSON {
+		serveMethod.DefNew("reqContent", types.NewUnsafeTypeReference(inputType))
+		serveMethod.DefShortVar("unmarshaler", "jsonpb.Unmarshaler{AllowUnknownFields: true}")
+		serveMethod.DefCall([]string{"err"}, types.NewUnsafeTypeReference("unmarshaler.Unmarshal"), []string{"req.Body", "reqContent"})
+		serveMethod.DefIfBegin("err", token.NEQ, "nil")
+		serveMethod.DefCall([]string{"err"}, types.NewUnsafeTypeReference("errors.WrapErr"), []string{"err", `"failed to parse request json"`})
+		serveMethod.DefAssginCall([]string{"terr"}, types.NewUnsafeTypeReference("errors.InternalErrorWith"), []string{"err"})
+		serveMethod.Caller(types.NewUnsafeTypeReference("s.logErrorFunc"), []string{`"%v"`, "err"})
+		serveMethod.Caller(types.NewUnsafeTypeReference("s.writeError"), []string{"ctx", "resp", "terr"})
+		serveMethod.Return()
+		serveMethod.CloseIf()
+	} else if contentType == ServeProtobuffer {
+		serveMethod.DefAssginCall([]string{"buff", "err"}, types.NewUnsafeTypeReference("ioutil.ReadAll"), []string{"req.Body"})
+		serveMethod.DefIfBegin("err", token.NEQ, "nil")
+		serveMethod.DefCall([]string{"err"}, types.NewUnsafeTypeReference("errors.WrapErr"), []string{"err", `"failed to read request proto"`})
+		serveMethod.DefAssginCall([]string{"terr"}, types.NewUnsafeTypeReference("errors.InternalErrorWith"), []string{"err"})
+		serveMethod.Caller(types.NewUnsafeTypeReference("s.logErrorFunc"), []string{`"%v"`, "err"})
+		serveMethod.Caller(types.NewUnsafeTypeReference("s.writeError"), []string{"ctx", "resp", "terr"})
+		serveMethod.Return()
+		serveMethod.CloseIf()
+		serveMethod.DefNew("reqContent", types.NewUnsafeTypeReference(inputType))
+		serveMethod.DefCall([]string{"err"}, types.NewUnsafeTypeReference("proto.Unmarshal"), []string{"buff", "reqContent"})
+		serveMethod.DefIfBegin("err", token.NEQ, "nil")
+		serveMethod.DefCall([]string{"err"}, types.NewUnsafeTypeReference("errors.WrapErr"), []string{"err", `"failed to parse request proto"`})
+		serveMethod.DefAssginCall([]string{"terr"}, types.NewUnsafeTypeReference("errors.InternalErrorWith"), []string{"err"})
+		serveMethod.Caller(types.NewUnsafeTypeReference("s.logErrorFunc"), []string{`"%v"`, "err"})
+		serveMethod.Caller(types.NewUnsafeTypeReference("s.writeError"), []string{"ctx", "resp", "terr"})
+		serveMethod.Return()
+		serveMethod.CloseIf()
+	} else {
+		return nil, errors.New("content type isn't supported")
+	}
+
 	serveMethod.DefNew("respContent", types.NewUnsafeTypeReference(outputType))
 	responseCallWrapper, _ := types.NewAnonymousGoFunc("responseCallWrapper", nil, nil)
 	responseDeferWrapper, _ := types.NewAnonymousGoFunc("responseDeferWrapper", nil, nil)
@@ -808,22 +852,32 @@ func (a *API) generateServerJSONMethod(service *descriptor.ServiceDescriptorProt
 	serveMethod.CloseIf()
 
 	serveMethod.DefCall([]string{"ctx"}, types.NewUnsafeTypeReference("transport.CallResponsePrepared"), []string{"ctx", "s.hooks"})
-	serveMethod.DefNew("buff", types.NewUnsafeTypeReference("bytes.Buffer"))
-	serveMethod.DefShortVar("marshaler", "&jsonpb.Marshaler{OrigName: true}")
-	serveMethod.DefCall([]string{"err"}, types.NewUnsafeTypeReference("marshaler.Marshal"), []string{"buff", "respContent"})
-	serveMethod.DefIfBegin("err", token.NEQ, "nil")
-	serveMethod.DefCall([]string{"err"}, types.NewUnsafeTypeReference("errors.WrapErr"), []string{"err", `"failed to marshal json response"`})
-	serveMethod.DefAssginCall([]string{"terr"}, types.NewUnsafeTypeReference("errors.InternalErrorWith"), []string{"err"})
-	serveMethod.Caller(types.NewUnsafeTypeReference("s.logErrorFunc"), []string{`"%v"`, "err"})
-	serveMethod.Caller(types.NewUnsafeTypeReference("s.writeError"), []string{"ctx", "resp", "terr"})
-	serveMethod.Return()
-	serveMethod.CloseIf()
+	if contentType == ServeJSON {
+		serveMethod.DefNew("buff", types.NewUnsafeTypeReference("bytes.Buffer"))
+		serveMethod.DefShortVar("marshaler", "&jsonpb.Marshaler{OrigName: true}")
+		serveMethod.DefCall([]string{"err"}, types.NewUnsafeTypeReference("marshaler.Marshal"), []string{"buff", "respContent"})
+		serveMethod.DefIfBegin("err", token.NEQ, "nil")
+		serveMethod.DefCall([]string{"err"}, types.NewUnsafeTypeReference("errors.WrapErr"), []string{"err", `"failed to marshal json response"`})
+		serveMethod.DefAssginCall([]string{"terr"}, types.NewUnsafeTypeReference("errors.InternalErrorWith"), []string{"err"})
+		serveMethod.Caller(types.NewUnsafeTypeReference("s.logErrorFunc"), []string{`"%v"`, "err"})
+		serveMethod.Caller(types.NewUnsafeTypeReference("s.writeError"), []string{"ctx", "resp", "terr"})
+		serveMethod.Return()
+		serveMethod.CloseIf()
+		serveMethod.DefAssginCall([]string{"respBytes"}, types.NewUnsafeTypeReference("buff.Bytes"), nil)
+		serveMethod.Caller(types.NewUnsafeTypeReference("req.Header.Set"), []string{"xhttp.ContentTypeHeader", "xhttp.ApplicationJson"})
+	} else if contentType == ServeProtobuffer {
+		serveMethod.DefAssginCall([]string{"respBytes", "err"}, types.NewUnsafeTypeReference("proto.Marshal"), []string{"respContent"})
+		serveMethod.DefIfBegin("err", token.NEQ, "nil")
+		serveMethod.DefCall([]string{"err"}, types.NewUnsafeTypeReference("errors.WrapErr"), []string{"err", `"failed to marshal json response"`})
+		serveMethod.DefAssginCall([]string{"terr"}, types.NewUnsafeTypeReference("errors.InternalErrorWith"), []string{"err"})
+		serveMethod.Caller(types.NewUnsafeTypeReference("s.logErrorFunc"), []string{`"%v"`, "err"})
+		serveMethod.Caller(types.NewUnsafeTypeReference("s.writeError"), []string{"ctx", "resp", "terr"})
+		serveMethod.Return()
+		serveMethod.CloseIf()
+	}
 
 	serveMethod.DefCall([]string{"ctx"}, types.NewUnsafeTypeReference("xcontext.WithStatusCode"), []string{"ctx", "http.StatusOK"})
-	serveMethod.Caller(types.NewUnsafeTypeReference("req.Header.Set"), []string{"xhttp.ContentTypeHeader", "xhttp.ApplicationJson"})
 	serveMethod.Caller(types.NewUnsafeTypeReference("resp.WriteHeader"), []string{"http.StatusOK"})
-	serveMethod.DefAssginCall([]string{"respBytes"}, types.NewUnsafeTypeReference("buff.Bytes"), nil)
-
 	serveMethod.DefCall([]string{"_", "err"}, types.NewUnsafeTypeReference("resp.Write"), []string{"respBytes"})
 
 	serveMethod.DefIfBegin("err", token.NEQ, "nil")

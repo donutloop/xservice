@@ -43,6 +43,7 @@ const (
 	IfStatmentTpl             string = "if %s %s %s {\n"
 	IfStatmentWithOwnScopeTpl string = "if %s; %s %s %s {\n"
 	ElseStatmentTpl           string = "} else {\n"
+	ElseIfStatmentTpl         string = "} else if %s %s %s {\n"
 	IfEndTpl                  string = "}\n"
 	RangeTpl                  string = "for %s,%s := range %s {\n"
 	RangeEndTpl               string = "}\n"

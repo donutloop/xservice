@@ -106,7 +106,6 @@ Please refer [**docs/DeveloperQuickStart.md**](https://github.com/donutloop/xser
 
 ## Roadmap
 
-* Golang client & server: support for protobuffer content type 
 * Multi language support
 
 ## Contribution

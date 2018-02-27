@@ -167,7 +167,7 @@ func marshalErrorToJSON(terr errors.Error) []byte {
 }
 
 // doProtobufRequest is common code to make a request to the remote  service.
-func doProtobufRequest(ctx context.Context, client HTTPClient, url string, in, out proto.Message) (err error) {
+func DoProtobufferRequest(ctx context.Context, client HTTPClient, url string, in, out proto.Message) (err error) {
 	reqBodyBytes, err := proto.Marshal(in)
 	if err != nil {
 		return errors.ClientError("failed to marshal proto request", err)
