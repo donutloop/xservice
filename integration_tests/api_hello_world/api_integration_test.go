@@ -28,7 +28,8 @@ func (s *HelloWorldServer) Hello(ctx context.Context, req *helloworld.HelloReq) 
 	return &helloworld.HelloResp{Text: "Hello " + req.Subject}, nil
 }
 
-var client helloworld.HelloWorld
+var JSONClient helloworld.HelloWorld
+var ProtobufferClient helloworld.HelloWorld
 
 func TestMain(m *testing.M) {
 	handler := helloworld.NewHelloWorldServer(&HelloWorldServer{}, nil)
@@ -37,14 +38,27 @@ func TestMain(m *testing.M) {
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
-	client = helloworld.NewHelloWorldJSONClient(server.URL, &http.Client{})
+	JSONClient = helloworld.NewHelloWorldJSONClient(server.URL, &http.Client{})
+	ProtobufferClient = helloworld.NewHelloWorldProtobufferClient(server.URL, &http.Client{})
 
 	// call flag.Parse() here if TestMain uses flags
 	os.Exit(m.Run())
 }
 
-func TestHelloWorldCall(t *testing.T) {
-	resp, err := client.Hello(context.Background(), &helloworld.HelloReq{Subject: "World"})
+func TestHelloWorldJSONCall(t *testing.T) {
+	resp, err := JSONClient.Hello(context.Background(), &helloworld.HelloReq{Subject: "World"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedMessage := "Hello World"
+	if resp.Text != expectedMessage {
+		t.Fatalf(`unexpected text (actual: "%s", expected: "%s")`, resp.Text, expectedMessage)
+	}
+}
+
+func TestHelloWorldProtobufferCall(t *testing.T) {
+	resp, err := ProtobufferClient.Hello(context.Background(), &helloworld.HelloReq{Subject: "World"})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -347,6 +347,15 @@ func (gen *GoBlockGenerator) DefIfBegin(rightSide string, operation token.Token,
 	return nil
 }
 
+func (gen *GoBlockGenerator) DefElseIf(rightSide string, operation token.Token, leftSide string) error {
+	if err := gen.validateIf(rightSide, operation, leftSide); err != nil {
+		return err
+	}
+
+	gen.MetaData.Lines = append(gen.MetaData.Lines, fmt.Sprintf(ElseIfStatmentTpl, rightSide, operation.String(), leftSide))
+	return nil
+}
+
 func (gen *GoBlockGenerator) validateIf(rightSide string, operation token.Token, leftSide string) error {
 	if rightSide == "" {
 		return NewGeneratorErrorString(gen, "right side of if is missing")
