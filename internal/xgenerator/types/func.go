@@ -21,7 +21,7 @@ type FuncGeneratorMetaData struct {
 	MethodOfTyp string
 	TypShortcut string
 	Fnc         string
-	Comment     []string
+	Comment     string
 }
 
 type FuncGenerator struct {
@@ -32,13 +32,14 @@ type FuncGenerator struct {
 
 const funcTplName = "func"
 const funcTpl string = `
+{{ if .Comment }} // {{ .Comment }} {{ end }}
 func {{ .Name }} ({{ .Params }}) {{if .Returns }} ({{- .Returns }}) {{end}} {
 {{range $i, $line := .Lines}}
 	{{- $line | safe }}
 {{- end -}}
 }`
 
-func NewGoFunc(name string, parameters []*Parameter, returns []TypeReference) (*FuncGenerator, error) {
+func NewGoFunc(name string, parameters []*Parameter, returns []TypeReference, comment string) (*FuncGenerator, error) {
 
 	gen := &FuncGenerator{}
 
@@ -55,8 +56,9 @@ func NewGoFunc(name string, parameters []*Parameter, returns []TypeReference) (*
 	}
 
 	gen.TypeFuncMetadata = FuncGeneratorMetaData{
-		Name:   Identifier(name),
-		Params: paramList(parameters),
+		Name:    Identifier(name),
+		Params:  paramList(parameters),
+		Comment: comment,
 	}
 
 	if len(returns) > 0 {

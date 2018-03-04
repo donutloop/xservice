@@ -69,7 +69,7 @@ type({{range $i, $typ := .Types}}
 {{end}}
 
 {{range $i, $func := .Funcs}}
-            {{- $func}}
+            {{- $func }}
 {{end}}
 `
 
