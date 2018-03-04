@@ -9,10 +9,8 @@
 package helloworld
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"strings"
@@ -23,8 +21,6 @@ import (
 	"github.com/donutloop/xservice/framework/transport"
 	"github.com/donutloop/xservice/framework/xcontext"
 	"github.com/donutloop/xservice/framework/xhttp"
-	jsonpb "github.com/golang/protobuf/jsonpb"
-	proto "github.com/golang/protobuf/proto"
 )
 
 // //[HelloWorldPathPrefix HelloWorld] is used for all URL paths on a %!s(MISSING) server.
@@ -118,10 +114,10 @@ func (s *helloWorldServer) serveHello(ctx context.Context, resp http.ResponseWri
 	modifiedHeader := strings.ToLower(header[:i])
 	modifiedHeader = strings.TrimSpace(modifiedHeader)
 	if modifiedHeader == xhttp.ApplicationJson {
-		s.serveHelloJSON(ctx, resp, req)
+		s.serveHelloContent(ctx, resp, req, transport.DecodeJSONRequest, transport.EncodeJSONResponse)
 		return
 	} else if modifiedHeader == xhttp.ApplicationProtobuf {
-		s.serveHelloProtobuffer(ctx, resp, req)
+		s.serveHelloContent(ctx, resp, req, transport.DecodePROTORequest, transport.EncodePROTOResponse)
 		return
 	} else {
 		msg := fmt.Sprintf("unexpected Content-Type: %q", header)
@@ -130,7 +126,7 @@ func (s *helloWorldServer) serveHello(ctx context.Context, resp http.ResponseWri
 	}
 }
 
-func (s *helloWorldServer) serveHelloJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+func (s *helloWorldServer) serveHelloContent(ctx context.Context, resp http.ResponseWriter, req *http.Request, decodeRequest transport.DecodeRequestFunc, encodeResponse transport.EncodeResponseFunc) {
 	var err error
 	ctx = xcontext.WithMethodName(ctx, "Hello")
 	ctx, err = transport.CallRequestRouted(ctx, s.hooks)
@@ -141,13 +137,10 @@ func (s *helloWorldServer) serveHelloJSON(ctx context.Context, resp http.Respons
 	defer transport.Closebody(req.Body, s.logErrorFunc)
 
 	reqContent := new(HelloReq)
-	unmarshaler := jsonpb.Unmarshaler{AllowUnknownFields: true}
-	err = unmarshaler.Unmarshal(req.Body, reqContent)
+	err = decodeRequest(ctx, req, reqContent)
 	if err != nil {
-		err = errors.WrapErr(err, "failed to parse request json")
-		terr := errors.InternalErrorWith(err)
 		s.logErrorFunc("%v", err)
-		s.writeError(ctx, resp, terr)
+		s.writeError(ctx, resp, err)
 		return
 	}
 	respContent := new(HelloResp)
@@ -176,96 +169,10 @@ func (s *helloWorldServer) serveHelloJSON(ctx context.Context, resp http.Respons
 		return
 	}
 	ctx = transport.CallResponsePrepared(ctx, s.hooks)
-	buff := new(bytes.Buffer)
-	marshaler := &jsonpb.Marshaler{OrigName: true}
-	err = marshaler.Marshal(buff, respContent)
+	err = encodeResponse(ctx, resp, respContent)
 	if err != nil {
-		err = errors.WrapErr(err, "failed to marshal json response")
-		terr := errors.InternalErrorWith(err)
 		s.logErrorFunc("%v", err)
-		s.writeError(ctx, resp, terr)
-		return
-	}
-	respBytes := buff.Bytes()
-	req.Header.Set(xhttp.ContentTypeHeader, xhttp.ApplicationJson)
-	ctx = xcontext.WithStatusCode(ctx, http.StatusOK)
-	resp.WriteHeader(http.StatusOK)
-	_, err = resp.Write(respBytes)
-	if err != nil {
-		s.logErrorFunc("error while writing response to client, but already sent response status code to 200: %s", err)
-		resp.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	transport.CallResponseSent(ctx, s.hooks)
-}
-
-func (s *helloWorldServer) serveHelloProtobuffer(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
-	var err error
-	ctx = xcontext.WithMethodName(ctx, "Hello")
-	ctx, err = transport.CallRequestRouted(ctx, s.hooks)
-	if err != nil {
 		s.writeError(ctx, resp, err)
-		return
-	}
-	defer transport.Closebody(req.Body, s.logErrorFunc)
-
-	buff, err := ioutil.ReadAll(req.Body)
-	if err != nil {
-		err = errors.WrapErr(err, "failed to read request proto")
-		terr := errors.InternalErrorWith(err)
-		s.logErrorFunc("%v", err)
-		s.writeError(ctx, resp, terr)
-		return
-	}
-	reqContent := new(HelloReq)
-	err = proto.Unmarshal(buff, reqContent)
-	if err != nil {
-		err = errors.WrapErr(err, "failed to parse request proto")
-		terr := errors.InternalErrorWith(err)
-		s.logErrorFunc("%v", err)
-		s.writeError(ctx, resp, terr)
-		return
-	}
-	respContent := new(HelloResp)
-	responseCallWrapper := func() {
-		responseDeferWrapper := func() {
-			r := recover()
-			if r != nil {
-				terr := errors.InternalError("Internal service panic")
-				s.writeError(ctx, resp, terr)
-				panic(r)
-			}
-		}
-		defer responseDeferWrapper()
-
-		respContent, err = s.Hello(ctx, reqContent)
-	}
-	responseCallWrapper()
-	if err != nil {
-		s.writeError(ctx, resp, err)
-		return
-	}
-	if respContent == nil {
-		terr := errors.InternalError("received a nil * HelloResp, and nil error while calling Hello. nil responses are not supported")
-		s.logErrorFunc("%v", err)
-		s.writeError(ctx, resp, terr)
-		return
-	}
-	ctx = transport.CallResponsePrepared(ctx, s.hooks)
-	respBytes, err := proto.Marshal(respContent)
-	if err != nil {
-		err = errors.WrapErr(err, "failed to marshal json response")
-		terr := errors.InternalErrorWith(err)
-		s.logErrorFunc("%v", err)
-		s.writeError(ctx, resp, terr)
-		return
-	}
-	ctx = xcontext.WithStatusCode(ctx, http.StatusOK)
-	resp.WriteHeader(http.StatusOK)
-	_, err = resp.Write(respBytes)
-	if err != nil {
-		s.logErrorFunc("error while writing response to client, but already sent response status code to 200: %s", err)
-		resp.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	transport.CallResponseSent(ctx, s.hooks)

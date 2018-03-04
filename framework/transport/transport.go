@@ -25,6 +25,7 @@ import (
 	"github.com/donutloop/xservice/framework/errors"
 	"github.com/donutloop/xservice/framework/hooks"
 	"github.com/donutloop/xservice/framework/xcontext"
+	"github.com/donutloop/xservice/framework/xhttp"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"io"
@@ -403,3 +404,67 @@ func CallError(ctx context.Context, h *hooks.ServerHooks, err errors.Error) cont
 
 // LogErrorFunc logs critical errors
 type LogErrorFunc func(format string, args ...interface{})
+
+func EncodeJSONResponse(ctx context.Context, resp http.ResponseWriter, content proto.Message) error {
+	buff := new(bytes.Buffer)
+	marshaler := &jsonpb.Marshaler{OrigName: true}
+	if err := marshaler.Marshal(buff, content); err != nil {
+		err = errors.WrapErr(err, "failed to marshal json response")
+		return errors.InternalErrorWith(err)
+	}
+	respBytes := buff.Bytes()
+	resp.Header().Set(xhttp.ContentTypeHeader, xhttp.ApplicationJson)
+	if _, err := resp.Write(respBytes); err != nil {
+		err = errors.WrapErr(err, "error while writing response to client, but already sent response status code to 200")
+		return errors.InternalErrorWith(err)
+	}
+	resp.WriteHeader(http.StatusOK)
+	ctx = xcontext.WithStatusCode(ctx, http.StatusOK)
+	return nil
+}
+
+// DecodeRequestFunc extracts a user-domain request object from an HTTP request object.
+type DecodeRequestFunc func(ctx context.Context, resp *http.Request, content proto.Message) error
+
+// EncodeResponseFunc encodes the passed response object to the proto encoder.
+type EncodeResponseFunc func(ctx context.Context, resp http.ResponseWriter, content proto.Message) error
+
+func DecodeJSONRequest(ctx context.Context, req *http.Request, message proto.Message) error {
+	unmarshaler := jsonpb.Unmarshaler{AllowUnknownFields: true}
+	if err := unmarshaler.Unmarshal(req.Body, message); err != nil {
+		err = errors.WrapErr(err, "failed to parse request json")
+		terr := errors.InternalErrorWith(err)
+		return terr
+	}
+	return nil
+}
+
+func EncodePROTOResponse(ctx context.Context, resp http.ResponseWriter, content proto.Message) error {
+	respBytes, err := proto.Marshal(content)
+	if err != nil {
+		err = errors.WrapErr(err, "failed to marshal proto response")
+		return errors.InternalErrorWith(err)
+	}
+	resp.Header().Set(xhttp.ContentTypeHeader, xhttp.ApplicationProtobuf)
+	if _, err := resp.Write(respBytes); err != nil {
+		err = errors.WrapErr(err, "error while writing response to client, but already sent response status code to 200")
+		return errors.InternalErrorWith(err)
+	}
+	resp.WriteHeader(http.StatusOK)
+	ctx = xcontext.WithStatusCode(ctx, http.StatusOK)
+	return nil
+}
+
+func DecodePROTORequest(ctx context.Context, req *http.Request, content proto.Message) error {
+	buff, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		err = errors.WrapErr(err, "failed to read request proto")
+		return errors.InternalErrorWith(err)
+	}
+	err = proto.Unmarshal(buff, content)
+	if err != nil {
+		err = errors.WrapErr(err, "failed to parse request proto")
+		return errors.InternalErrorWith(err)
+	}
+	return nil
+}
