@@ -28,6 +28,7 @@ func TestNewFuncAndRender(t *testing.T) {
 			types.String,
 			types.String,
 		},
+		"",
 	)
 	if err != nil {
 		t.Error(err)

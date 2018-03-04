@@ -338,6 +338,7 @@ func (a *API) generateClient(name string, fileDescriptor *descriptor.FileDescrip
 	if err != nil {
 		return nil, err
 	}
+	structGenerator.StructMetaData.Comment = append(structGenerator.StructMetaData.Comment, fmt.Sprintf("%s wraps an http.client and sends %s objects", structName, name))
 
 	structGenerator.AddUnexportedField("client", types.NewUnsafeTypeReference("transport.HTTPClient"), "")
 	structGenerator.AddUnexportedField("urls", types.NewUnsafeTypeReference(fmt.Sprintf("[%s]string", methCnt)), "")
@@ -363,6 +364,7 @@ func (a *API) generateClientConstructor(newClientFuncName, structName string, se
 
 	pathPrefixConst := serviceName(service) + "PathPrefix"
 
+	comment := fmt.Sprintf("%s constructs a new client, which wraps the http.client and implements %s", newClientFuncName, serviceName(service))
 	f, err := types.NewGoFunc(newClientFuncName, []*types.Parameter{
 		{
 			NameOfParameter: "addr",
@@ -375,7 +377,7 @@ func (a *API) generateClientConstructor(newClientFuncName, structName string, se
 	},
 		[]types.TypeReference{
 			types.NewUnsafeTypeReference(serviceName(service)),
-		})
+		}, comment)
 	if err != nil {
 		return nil, err
 	}
@@ -432,7 +434,7 @@ func (a *API) generateClientConstructor(newClientFuncName, structName string, se
 	return goFile, nil
 }
 
-func (a *API) generateClientEndpoints(name string, fileDescriptor *descriptor.FileDescriptorProto, service *descriptor.ServiceDescriptorProto, structGenerator *types.StructGenerator) (*types.StructGenerator, error) {
+func (a *API) generateClientEndpoints(contentType string, fileDescriptor *descriptor.FileDescriptorProto, service *descriptor.ServiceDescriptorProto, structGenerator *types.StructGenerator) (*types.StructGenerator, error) {
 
 	for i, method := range service.Method {
 		methName := methodName(method)
@@ -447,6 +449,7 @@ func (a *API) generateClientEndpoints(name string, fileDescriptor *descriptor.Fi
 			return nil, err
 		}
 
+		comment := fmt.Sprintf("%s sends an %s %s object to the server", methName, inputType, contentType)
 		method, err := types.NewGoMethod("c", fmt.Sprintf("*%s", structGenerator.StructMetaData.Name), methName, []*types.Parameter{
 			{
 				NameOfParameter: "ctx",
@@ -459,7 +462,7 @@ func (a *API) generateClientEndpoints(name string, fileDescriptor *descriptor.Fi
 		}, []types.TypeReference{
 			types.NewUnsafeTypeReference(fmt.Sprintf("*%s", outputType)),
 			types.NewUnsafeTypeReference("error"),
-		}, "")
+		}, comment)
 
 		if err != nil {
 			return nil, err
@@ -469,7 +472,7 @@ func (a *API) generateClientEndpoints(name string, fileDescriptor *descriptor.Fi
 		method.DefCall([]string{"ctx"}, types.NewUnsafeTypeReference("xcontext.WithServiceName"), []string{"ctx", `"` + servName + `"`})
 		method.DefCall([]string{"ctx"}, types.NewUnsafeTypeReference("xcontext.WithMethodName"), []string{"ctx", `"` + methName + `"`})
 		method.DefNew("out", types.NewUnsafeTypeReference(outputType))
-		method.DefAssginCall([]string{"err"}, types.NewUnsafeTypeReference(fmt.Sprintf("transport.Do%sRequest", name)), []string{"ctx", "c.client", fmt.Sprintf("c.urls[%s]", strconv.Itoa(i)), "in", "out"})
+		method.DefAssginCall([]string{"err"}, types.NewUnsafeTypeReference(fmt.Sprintf("transport.Do%sRequest", contentType)), []string{"ctx", "c.client", fmt.Sprintf("c.urls[%s]", strconv.Itoa(i)), "in", "out"})
 		method.Return([]string{"out", "err"})
 		structGenerator.AddMethod(method)
 	}
@@ -483,6 +486,8 @@ func (a *API) generateServer(fileDescriptor *descriptor.FileDescriptorProto, ser
 	if err != nil {
 		return nil, err
 	}
+
+	structGenerator.StructMetaData.Comment = append(structGenerator.StructMetaData.Comment, fmt.Sprintf("%s wraps an endpoint and implements http.Handler.", serviceStruct(service)))
 
 	structGenerator.Type(types.NewUnsafeTypeReference(serviceName(service)), "")
 	structGenerator.AddUnexportedField("hooks", types.NewUnsafeTypeReference("*hooks.ServerHooks"), "")
@@ -527,6 +532,7 @@ func (a *API) generateServerConstructor(serverName, serverStructName string, goF
 
 	constructorName := fmt.Sprintf("New%sServer", serverName)
 
+	comment := fmt.Sprintf("%s constructs a new server, and implements %s", constructorName, serverName)
 	f, err := types.NewGoFunc(constructorName, []*types.Parameter{
 		{
 			NameOfParameter: "svc",
@@ -543,7 +549,7 @@ func (a *API) generateServerConstructor(serverName, serverStructName string, goF
 	},
 		[]types.TypeReference{
 			types.NewUnsafeTypeReference("server.Server"),
-		})
+		}, comment)
 	if err != nil {
 		return nil, err
 	}
@@ -619,6 +625,7 @@ func (a *API) generateServerRouting(file *descriptor.FileDescriptorProto, servic
 		return nil, err
 	}
 
+	comment := "ServeHTTP implements http.Handler."
 	method, err := types.NewGoMethod("s", fmt.Sprintf("*%s", structGenerator.StructMetaData.Name), "ServeHTTP", []*types.Parameter{
 		{
 			NameOfParameter: "resp",
@@ -628,7 +635,7 @@ func (a *API) generateServerRouting(file *descriptor.FileDescriptorProto, servic
 			NameOfParameter: "req",
 			Typ:             types.NewUnsafeTypeReference("*http.Request"),
 		},
-	}, nil, "")
+	}, nil, comment)
 
 	if err != nil {
 		return nil, err
@@ -690,8 +697,10 @@ func (a *API) generateServerRouting(file *descriptor.FileDescriptorProto, servic
 
 func (a *API) generateServerMethod(service *descriptor.ServiceDescriptorProto, method *descriptor.MethodDescriptorProto, structGenerator *types.StructGenerator) (*types.StructGenerator, error) {
 	methName := types.CamelCase(method.GetName())
+	methNameServe := fmt.Sprintf("serve%s", methName)
 
-	dispatcherMethod, err := types.NewGoMethod("s", fmt.Sprintf("*%s", structGenerator.StructMetaData.Name), fmt.Sprintf("serve%s", methName), []*types.Parameter{
+	comment := fmt.Sprintf("%s is used to set an decoder and encoder for a given content type", methNameServe)
+	dispatcherMethod, err := types.NewGoMethod("s", fmt.Sprintf("*%s", structGenerator.StructMetaData.Name), methNameServe, []*types.Parameter{
 		{
 			NameOfParameter: "ctx",
 			Typ:             types.NewUnsafeTypeReference("context.Context"),
@@ -704,7 +713,7 @@ func (a *API) generateServerMethod(service *descriptor.ServiceDescriptorProto, m
 			NameOfParameter: "req",
 			Typ:             types.NewUnsafeTypeReference("*http.Request"),
 		},
-	}, nil, "")
+	}, nil, comment)
 
 	if err != nil {
 		return nil, err
@@ -743,7 +752,9 @@ func (a *API) generateServerMethod(service *descriptor.ServiceDescriptorProto, m
 
 func (a *API) generateServerServeMethod(service *descriptor.ServiceDescriptorProto, method *descriptor.MethodDescriptorProto, structGenerator *types.StructGenerator) (*types.StructGenerator, error) {
 	methName := types.CamelCase(method.GetName())
+	methServe := fmt.Sprintf("serve%sContent", methName)
 
+	comment := fmt.Sprintf("%s sends object to requester", methServe)
 	serveMethod, err := types.NewGoMethod("s", fmt.Sprintf("*%s", structGenerator.StructMetaData.Name), fmt.Sprintf("serve%sContent", methName), []*types.Parameter{
 		{
 			NameOfParameter: "ctx",
@@ -765,7 +776,7 @@ func (a *API) generateServerServeMethod(service *descriptor.ServiceDescriptorPro
 			NameOfParameter: "encodeResponse",
 			Typ:             types.NewUnsafeTypeReference("transport.EncodeResponseFunc"),
 		},
-	}, nil, "")
+	}, nil, comment)
 
 	if err != nil {
 		return nil, err
@@ -853,11 +864,12 @@ func (a *API) generateServiceMetadataAccessors(file *descriptor.FileDescriptorPr
 
 	structName := structGenerator.StructMetaData.Name
 
+	comment := "ServiceDescriptor describes an service."
 	serviceDescriptorMethod, err := types.NewGoMethod("s", fmt.Sprintf("*%s", structName), "ServiceDescriptor", nil,
 		[]types.TypeReference{
 			types.TypeReferenceFromInstance([]byte(nil)),
 			types.TypeReferenceFromInstance(int(0)),
-		}, "")
+		}, comment)
 
 	if err != nil {
 		return nil, err
@@ -866,10 +878,11 @@ func (a *API) generateServiceMetadataAccessors(file *descriptor.FileDescriptorPr
 	serviceDescriptorMethod.Return([]string{a.serviceMetadataVarName(), strconv.Itoa(index)})
 	structGenerator.AddMethod(serviceDescriptorMethod)
 
+	comment = "ProtocGenXServiceVersion returns which xservice version was used to generate that service"
 	protocGenXServiceVersionMethod, err := types.NewGoMethod("s", fmt.Sprintf("*%s", structName), "ProtocGenXServiceVersion", nil,
 		[]types.TypeReference{
 			types.TypeReferenceFromInstance(string("")),
-		}, "")
+		}, comment)
 
 	if err != nil {
 		return nil, err

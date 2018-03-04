@@ -35,11 +35,13 @@ type HelloWorld interface {
 	Hello(ctx context.Context, req *HelloReq) (*HelloResp, error)
 }
 
+// helloWorldJSONClient wraps an http.client and sends JSON objects
 type helloWorldJSONClient struct {
 	client transport.HTTPClient
 	urls   [1]string
 }
 
+// Hello sends an HelloReq JSON object to the server
 func (c *helloWorldJSONClient) Hello(ctx context.Context, in *HelloReq) (*HelloResp, error) {
 	ctx = xcontext.WithPackageName(ctx, "example.helloworld")
 	ctx = xcontext.WithServiceName(ctx, "HelloWorld")
@@ -49,11 +51,13 @@ func (c *helloWorldJSONClient) Hello(ctx context.Context, in *HelloReq) (*HelloR
 	return out, err
 }
 
+// helloWorldProtobufferClient wraps an http.client and sends Protobuffer objects
 type helloWorldProtobufferClient struct {
 	client transport.HTTPClient
 	urls   [1]string
 }
 
+// Hello sends an HelloReq Protobuffer object to the server
 func (c *helloWorldProtobufferClient) Hello(ctx context.Context, in *HelloReq) (*HelloResp, error) {
 	ctx = xcontext.WithPackageName(ctx, "example.helloworld")
 	ctx = xcontext.WithServiceName(ctx, "HelloWorld")
@@ -63,6 +67,7 @@ func (c *helloWorldProtobufferClient) Hello(ctx context.Context, in *HelloReq) (
 	return out, err
 }
 
+// helloWorldServer wraps an endpoint and implements http.Handler.
 type helloWorldServer struct {
 	HelloWorld
 	hooks        *hooks.ServerHooks
@@ -73,6 +78,7 @@ func (s *helloWorldServer) writeError(ctx context.Context, resp http.ResponseWri
 	transport.WriteErrorAndTriggerHooks(ctx, resp, err, s.hooks)
 }
 
+// ServeHTTP implements http.Handler.
 func (s *helloWorldServer) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	ctx = xcontext.WithPackageName(ctx, "example.helloworld")
@@ -105,6 +111,7 @@ func (s *helloWorldServer) ServeHTTP(resp http.ResponseWriter, req *http.Request
 
 }
 
+// serveHello is used to set an decoder and encoder for a given content type
 func (s *helloWorldServer) serveHello(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
 	header := req.Header.Get(xhttp.ContentTypeHeader)
 	i := strings.Index(header, ";")
@@ -126,6 +133,7 @@ func (s *helloWorldServer) serveHello(ctx context.Context, resp http.ResponseWri
 	}
 }
 
+// serveHelloContent sends object to requester
 func (s *helloWorldServer) serveHelloContent(ctx context.Context, resp http.ResponseWriter, req *http.Request, decodeRequest transport.DecodeRequestFunc, encodeResponse transport.EncodeResponseFunc) {
 	var err error
 	ctx = xcontext.WithMethodName(ctx, "Hello")
@@ -178,14 +186,17 @@ func (s *helloWorldServer) serveHelloContent(ctx context.Context, resp http.Resp
 	transport.CallResponseSent(ctx, s.hooks)
 }
 
+// ServiceDescriptor describes an service.
 func (s *helloWorldServer) ServiceDescriptor() ([]uint8, int) {
 	return xserviceFileDescriptor0, 0
 }
 
+// ProtocGenXServiceVersion returns which xservice version was used to generate that service
 func (s *helloWorldServer) ProtocGenXServiceVersion() string {
 	return "v0.1.0"
 }
 
+// NewHelloWorldJSONClient constructs a new client, which wraps the http.client and implements HelloWorld
 func NewHelloWorldJSONClient(addr string, client transport.HTTPClient) HelloWorld {
 	URLBase := transport.UrlBase(addr)
 	prefix := URLBase + HelloWorldPathPrefix
@@ -205,6 +216,8 @@ func NewHelloWorldJSONClient(addr string, client transport.HTTPClient) HelloWorl
 		urls:   urls,
 	}
 }
+
+// NewHelloWorldProtobufferClient constructs a new client, which wraps the http.client and implements HelloWorld
 func NewHelloWorldProtobufferClient(addr string, client transport.HTTPClient) HelloWorld {
 	URLBase := transport.UrlBase(addr)
 	prefix := URLBase + HelloWorldPathPrefix
@@ -224,6 +237,8 @@ func NewHelloWorldProtobufferClient(addr string, client transport.HTTPClient) He
 		urls:   urls,
 	}
 }
+
+// NewHelloWorldServer constructs a new server, and implements HelloWorld
 func NewHelloWorldServer(svc HelloWorld, hooks *hooks.ServerHooks, errorFunc ...transport.LogErrorFunc) server.Server {
 	server := &helloWorldServer{
 		HelloWorld: svc,
