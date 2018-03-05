@@ -145,27 +145,25 @@ func (s *helloWorldServer) serveHelloContent(ctx context.Context, resp http.Resp
 	defer transport.Closebody(req.Body, s.logErrorFunc)
 
 	reqContent := new(HelloReq)
-	err = decodeRequest(ctx, req, reqContent)
-	if err != nil {
+	if err := decodeRequest(ctx, req, reqContent); err != nil {
 		s.logErrorFunc("%v", err)
 		s.writeError(ctx, resp, err)
 		return
 	}
-	respContent := new(HelloResp)
-	responseCallWrapper := func() {
-		responseDeferWrapper := func() {
-			r := recover()
-			if r != nil {
+	endpointWrapper := func() (*HelloResp, error) {
+		deferWrapper := func() {
+			if r := recover(); r != nil {
 				terr := errors.InternalError("Internal service panic")
 				s.writeError(ctx, resp, terr)
 				panic(r)
 			}
 		}
-		defer responseDeferWrapper()
+		defer deferWrapper()
 
-		respContent, err = s.Hello(ctx, reqContent)
+		return s.Hello(ctx, reqContent)
+
 	}
-	responseCallWrapper()
+	respContent, err := endpointWrapper()
 	if err != nil {
 		s.writeError(ctx, resp, err)
 		return
@@ -177,8 +175,7 @@ func (s *helloWorldServer) serveHelloContent(ctx context.Context, resp http.Resp
 		return
 	}
 	ctx = transport.CallResponsePrepared(ctx, s.hooks)
-	err = encodeResponse(ctx, resp, respContent)
-	if err != nil {
+	if err := encodeResponse(ctx, resp, respContent); err != nil {
 		s.logErrorFunc("%v", err)
 		s.writeError(ctx, resp, err)
 		return

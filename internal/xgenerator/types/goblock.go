@@ -132,13 +132,13 @@ func (gen *GoBlockGenerator) DefMake(vars string, params []string) error {
 	return nil
 }
 
-func (gen *GoBlockGenerator) SCallWithDefVar(vars []string, fnc string, params []string) (string, error) {
+func (gen *GoBlockGenerator) SCallWithDefVar(vars []string, fnc TypeReference, params []string) (string, error) {
 
-	if fnc == "" {
+	if fnc.GetName() == "" {
 		return "", NewGeneratorErrorString(gen, "function is missing")
 	}
 
-	if err := ValidateIdent(fnc); err != nil {
+	if err := ValidateIdent(fnc.GetName()); err != nil {
 		return "", NewGeneratorError(gen, err)
 	}
 
@@ -150,7 +150,7 @@ func (gen *GoBlockGenerator) SCallWithDefVar(vars []string, fnc string, params [
 		return "", NewGeneratorError(gen, err)
 	}
 
-	return fmt.Sprintf(DefSCallTpl, identifierList(vars), fnc, ValueList(params)), nil
+	return fmt.Sprintf(DefSCallTpl, identifierList(vars), fnc.GetName(), ValueList(params)), nil
 }
 
 func (gen *GoBlockGenerator) SCall(fnc TypeReference, params []string) (string, error) {
